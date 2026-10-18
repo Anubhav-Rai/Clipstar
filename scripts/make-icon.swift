@@ -1,5 +1,6 @@
-// Draws the Tendedero app icon: two screenshots in crisp glass frames,
-// held by aluminium clips on a thin line, over a soft gradient.
+// Draws the Hangar app icon: a screenshot docked as a glowing hologram card,
+// held by two clamps, inside the corner brackets of a HUD, with warp
+// streaks behind it, over deep space.
 // Usage: swift scripts/make-icon.swift out.png
 import AppKit
 
@@ -16,12 +17,13 @@ let ctx = NSGraphicsContext.current!.cgContext
 func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> NSColor {
     NSColor(srgbRed: r / 255, green: g / 255, blue: b / 255, alpha: a)
 }
+let cyan = color(95, 244, 255)
 
-func shadow(_ alpha: CGFloat, blur: CGFloat, y: CGFloat) {
+func glow(_ c: NSColor, blur: CGFloat) {
     let s = NSShadow()
-    s.shadowColor = color(20, 24, 48, alpha)
+    s.shadowColor = c
     s.shadowBlurRadius = blur
-    s.shadowOffset = NSSize(width: 0, height: y)
+    s.shadowOffset = .zero
     s.set()
 }
 
@@ -30,141 +32,126 @@ let body = NSRect(x: 100, y: 100, width: 824, height: 824)
 let shape = NSBezierPath(roundedRect: body, xRadius: 185, yRadius: 185)
 
 ctx.saveGState()
-shadow(0.30, blur: 26, y: -12)
-color(200, 210, 240).setFill()
+let drop = NSShadow()
+drop.shadowColor = color(0, 0, 0, 0.35)
+drop.shadowBlurRadius = 26
+drop.shadowOffset = NSSize(width: 0, height: -12)
+drop.set()
+color(16, 24, 52).setFill()
 shape.fill()
 ctx.restoreGState()
 
 ctx.saveGState()
 shape.addClip()
-NSGradient(colors: [color(132, 170, 255), color(176, 160, 250), color(255, 190, 196)],
-           atLocations: [0, 0.55, 1], colorSpace: .sRGB)!
-    .draw(in: body, angle: -60)
-// Soft light from the top.
-NSGradient(colors: [color(255, 255, 255, 0.35), color(255, 255, 255, 0)])!
-    .draw(in: NSRect(x: body.minX, y: body.midY, width: body.width, height: body.height / 2), angle: -90)
+NSGradient(colors: [color(40, 62, 128), color(20, 30, 70), color(8, 12, 32)])!
+    .draw(in: shape, relativeCenterPosition: NSPoint(x: -0.3, y: 0.35))
 
-// The line
-let left = NSPoint(x: 60, y: 700), right = NSPoint(x: 964, y: 700)
-let control = NSPoint(x: 512, y: 590)
-func lineY(_ x: CGFloat) -> CGFloat {
-    let t = (x - left.x) / (right.x - left.x)
-    return (1 - t) * (1 - t) * left.y + 2 * (1 - t) * t * control.y + t * t * right.y
+// Stars.
+var seed: UInt64 = 7
+func rand() -> CGFloat {
+    seed = seed &* 6364136223846793005 &+ 1442695040888963407
+    return CGFloat(seed >> 33) / CGFloat(1 << 31)
 }
-func linePath() -> NSBezierPath {
+for _ in 0..<70 {
+    let r = 1.5 + rand() * 2.5
+    color(255, 255, 255, 0.25 + rand() * 0.5).setFill()
+    NSBezierPath(ovalIn: NSRect(x: 100 + rand() * 824, y: 100 + rand() * 824, width: r, height: r)).fill()
+}
+
+// Warp streaks fanning out behind the card, from the upper left.
+let card = NSRect(x: 352, y: 392, width: 360, height: 240)
+for i in 0..<9 {
+    let t = CGFloat(i) / 8
+    let start = NSPoint(x: card.minX + 30, y: card.minY + 40 + t * 160)
+    let end = NSPoint(x: start.x - 260 - rand() * 120, y: start.y + 150 + t * 40)
     let p = NSBezierPath()
-    p.move(to: left)
-    p.curve(to: right,
-            controlPoint1: NSPoint(x: left.x + (control.x - left.x) * 2 / 3, y: left.y + (control.y - left.y) * 2 / 3),
-            controlPoint2: NSPoint(x: right.x + (control.x - right.x) * 2 / 3, y: right.y + (control.y - right.y) * 2 / 3))
-    return p
+    p.move(to: start)
+    p.line(to: end)
+    p.lineWidth = i % 3 == 0 ? 7 : 3.5
+    p.lineCapStyle = .round
+    ctx.saveGState()
+    glow(cyan, blur: 14)
+    cyan.withAlphaComponent(0.25 + 0.35 * (1 - abs(t - 0.5))).setStroke()
+    p.stroke()
+    ctx.restoreGState()
 }
+
+// HUD corner brackets.
+let hud = body.insetBy(dx: 120, dy: 120)
 ctx.saveGState()
-shadow(0.25, blur: 8, y: -5)
-let line = linePath()
-line.lineWidth = 9
-color(110, 116, 140).setStroke()
-line.stroke()
-ctx.restoreGState()
-let highlight = linePath()
-highlight.lineWidth = 3
-highlight.transform(using: AffineTransform(translationByX: 0, byY: 2))
-color(255, 255, 255, 0.55).setStroke()
-highlight.stroke()
-
-// A screenshot in a glass frame, hanging from a clip.
-func hang(centerX: CGFloat, width: CGFloat, height: CGFloat, angle: CGFloat, content: (NSRect) -> Void) {
-    let top = lineY(centerX) + 34
-    ctx.saveGState()
-    ctx.translateBy(x: centerX, y: top)
-    ctx.rotate(by: angle * .pi / 180)
-
-    let radius: CGFloat = 64, inset: CGFloat = 18
-    let frame = NSRect(x: -width / 2, y: -height, width: width, height: height)
-    let framePath = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
-
-    // Glass: translucent white body, soft shadow, top-lit edge.
-    ctx.saveGState()
-    shadow(0.28, blur: 40, y: -22)
-    color(255, 255, 255, 0.42).setFill()
-    framePath.fill()
-    ctx.restoreGState()
-    NSGradient(colors: [color(255, 255, 255, 0.30), color(255, 255, 255, 0.05)])!
-        .draw(in: framePath, angle: -90)
-
-    let photoRect = frame.insetBy(dx: inset, dy: inset)
-    let photoPath = NSBezierPath(roundedRect: photoRect, xRadius: radius - inset, yRadius: radius - inset)
-    ctx.saveGState()
-    photoPath.addClip()
-    content(photoRect)
-    ctx.restoreGState()
-
-    // Top-lit edge: a thin ring, brighter at the top.
-    ctx.saveGState()
-    let ring = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
-    ring.append(NSBezierPath(roundedRect: frame.insetBy(dx: 4, dy: 4), xRadius: radius - 4, yRadius: radius - 4))
-    ring.windingRule = .evenOdd
-    ring.addClip()
-    NSGradient(colors: [color(255, 255, 255, 0.95), color(255, 255, 255, 0.30)])!.draw(in: frame, angle: -90)
-    ctx.restoreGState()
-
-    // Aluminium clip
-    let clip = NSRect(x: -15, y: -58, width: 30, height: 86)
-    let clipPath = NSBezierPath(roundedRect: clip, xRadius: 11, yRadius: 11)
-    ctx.saveGState()
-    shadow(0.35, blur: 8, y: -5)
-    color(200, 200, 205).setFill()
-    clipPath.fill()
-    ctx.restoreGState()
-    NSGradient(colors: [color(170, 172, 180), color(240, 241, 245), color(212, 214, 220), color(150, 152, 160)],
-               atLocations: [0, 0.35, 0.65, 1], colorSpace: .sRGB)!
-        .draw(in: clipPath, angle: 0)
-    color(40, 40, 50, 0.35).setFill()
-    NSBezierPath(roundedRect: NSRect(x: -9, y: -6, width: 18, height: 5), xRadius: 2.5, yRadius: 2.5).fill()
-    clipPath.lineWidth = 2
-    color(255, 255, 255, 0.7).setStroke()
-    clipPath.stroke()
-
-    ctx.restoreGState()
-}
-
-// Left: a small app window.
-hang(centerX: 330, width: 340, height: 400, angle: 3) { r in
-    color(248, 249, 252).setFill(); r.fill()
-    let bar = NSRect(x: r.minX, y: r.maxY - 56, width: r.width, height: 56)
-    color(232, 234, 240).setFill(); bar.fill()
-    for (i, c) in [color(255, 95, 87), color(254, 188, 46), color(40, 200, 64)].enumerated() {
-        c.setFill()
-        NSBezierPath(ovalIn: NSRect(x: r.minX + 26 + CGFloat(i) * 30, y: bar.midY - 9, width: 18, height: 18)).fill()
-    }
-    color(100, 120, 255).setFill()
-    NSBezierPath(roundedRect: NSRect(x: r.minX + 26, y: bar.minY - 70, width: r.width * 0.55, height: 26), xRadius: 8, yRadius: 8).fill()
-    color(200, 204, 216).setFill()
-    for i in 0..<5 {
-        let w = r.width * [0.78, 0.66, 0.72, 0.5, 0.62][i]
-        NSBezierPath(roundedRect: NSRect(x: r.minX + 26, y: bar.minY - 120 - CGFloat(i) * 38, width: w, height: 16), xRadius: 8, yRadius: 8).fill()
-    }
-}
-
-// Right: a sunset photo.
-hang(centerX: 695, width: 320, height: 270, angle: -3) { r in
-    NSGradient(colors: [color(255, 150, 90), color(255, 110, 130), color(120, 90, 200)])!.draw(in: r, angle: 90)
-    color(255, 230, 160).setFill()
-    NSBezierPath(ovalIn: NSRect(x: r.midX - 40, y: r.minY + 60, width: 80, height: 80)).fill()
-    let hills = NSBezierPath()
-    hills.move(to: NSPoint(x: r.minX, y: r.minY + 70))
-    hills.curve(to: NSPoint(x: r.maxX, y: r.minY + 50), controlPoint1: NSPoint(x: r.minX + r.width * 0.3, y: r.minY + 130),
-                controlPoint2: NSPoint(x: r.minX + r.width * 0.6, y: r.minY + 10))
-    hills.line(to: NSPoint(x: r.maxX, y: r.minY)); hills.line(to: NSPoint(x: r.minX, y: r.minY)); hills.close()
-    color(70, 50, 130).setFill(); hills.fill()
+glow(cyan, blur: 18)
+cyan.setStroke()
+for (x, y, sx, sy) in [(hud.minX, hud.minY, 1.0, 1.0), (hud.maxX, hud.minY, -1.0, 1.0),
+                       (hud.minX, hud.maxY, 1.0, -1.0), (hud.maxX, hud.maxY, -1.0, -1.0)] as [(CGFloat, CGFloat, CGFloat, CGFloat)] {
+    let p = NSBezierPath()
+    p.move(to: NSPoint(x: x, y: y + sy * 110))
+    p.line(to: NSPoint(x: x, y: y))
+    p.line(to: NSPoint(x: x + sx * 110, y: y))
+    p.lineWidth = 22
+    p.lineCapStyle = .round
+    p.lineJoinStyle = .round
+    p.stroke()
 }
 ctx.restoreGState()
 
-// Top-lit rim on the icon body.
+// The docked card: a hologram frame round a little window.
+let frame = NSBezierPath(roundedRect: card, xRadius: 28, yRadius: 28)
+ctx.saveGState()
+glow(cyan, blur: 40)
+color(6, 14, 34, 0.9).setFill()
+frame.fill()
+ctx.restoreGState()
+
+let inner = card.insetBy(dx: 16, dy: 16)
+let window = NSBezierPath(roundedRect: inner, xRadius: 14, yRadius: 14)
+ctx.saveGState()
+window.addClip()
+NSGradient(colors: [color(161, 196, 253), color(194, 233, 251)])!.draw(in: inner, angle: -60)
+color(255, 255, 255, 0.6).setFill()
+NSRect(x: inner.minX, y: inner.maxY - 40, width: inner.width, height: 40).fill()
+for (i, c) in [color(255, 95, 87), color(254, 188, 46), color(40, 200, 64)].enumerated() {
+    c.setFill()
+    NSBezierPath(ovalIn: NSRect(x: inner.minX + 20 + CGFloat(i) * 28, y: inner.maxY - 29, width: 17, height: 17)).fill()
+}
+color(255, 255, 255, 0.8).setFill()
+for (i, w) in [0.62, 0.78, 0.45].enumerated() {
+    NSBezierPath(roundedRect: NSRect(x: inner.minX + 26, y: inner.maxY - 82 - CGFloat(i) * 34, width: inner.width * w, height: 13),
+                 xRadius: 6.5, yRadius: 6.5).fill()
+}
+// Scanlines.
+color(95, 244, 255, 0.16).setFill()
+var y = inner.minY
+while y < inner.maxY {
+    NSRect(x: inner.minX, y: y, width: inner.width, height: 3).fill()
+    y += 9
+}
+ctx.restoreGState()
+
+ctx.saveGState()
+glow(cyan, blur: 12)
+cyan.setStroke()
+frame.lineWidth = 7
+frame.stroke()
+// Clamps either side.
+for s in [-1.0, 1.0] as [CGFloat] {
+    let x = s < 0 ? card.minX - 26 : card.maxX + 26
+    let p = NSBezierPath()
+    p.move(to: NSPoint(x: x - s * 22, y: card.midY + 60))
+    p.line(to: NSPoint(x: x, y: card.midY + 60))
+    p.line(to: NSPoint(x: x, y: card.midY - 60))
+    p.line(to: NSPoint(x: x - s * 22, y: card.midY - 60))
+    p.lineWidth = 12
+    p.lineCapStyle = .round
+    p.lineJoinStyle = .round
+    p.stroke()
+}
+ctx.restoreGState()
+
+// The rim, lit from above.
+ctx.restoreGState()
+ctx.saveGState()
 shape.lineWidth = 4
-ctx.saveGState()
-shape.addClip()
-color(255, 255, 255, 0.35).setStroke()
+color(255, 255, 255, 0.18).setStroke()
 shape.stroke()
 ctx.restoreGState()
 
