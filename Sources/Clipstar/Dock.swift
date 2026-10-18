@@ -113,9 +113,11 @@ enum Dock {
         return out
     }
 
-    /// The rail the screenshots ride, newest first: from the middle of the
-    /// top leftwards, down the left side, then along the bottom towards the
-    /// tail in the bottom right corner. The right side stays clear.
+    /// The rail the screenshots ride, newest first: from the top right,
+    /// straight above where the bottom row ends, leftwards along the top,
+    /// down the left side, then back along the bottom to the tail in the
+    /// bottom right corner. Top and bottom rows match; the right side stays
+    /// clear.
     static func ring(in size: CGSize) -> [Slot] {
         let b = box
         var out: [Slot] = []
@@ -126,20 +128,23 @@ enum Dock {
         let leftX = rail + gap + b.width / 2
         let bottomY = size.height - rail - gap - b.height / 2
         let stepX = b.width + 24, stepY = b.height + 18
-        var x = size.width / 2
-        while x - b.width / 2 >= leftX + b.width / 2 + 12 {
+        // The columns the top and bottom rows share, left to right.
+        var xs: [CGFloat] = []
+        var x = leftX + stepX / 2
+        while x + b.width / 2 <= size.width - tailRoom {
+            xs.append(x)
+            x += stepX
+        }
+        for x in xs.reversed() {
             add(.top, CGPoint(x: x, y: topY), CGPoint(x: x, y: rail))
-            x -= stepX
         }
         var y = topY + stepY
         while y + b.height / 2 <= bottomY - b.height / 2 - 12 {
             add(.left, CGPoint(x: leftX, y: y), CGPoint(x: rail, y: y))
             y += stepY
         }
-        x = leftX + stepX / 2
-        while x + b.width / 2 <= size.width - tailRoom {
+        for x in xs {
             add(.bottom, CGPoint(x: x, y: bottomY), CGPoint(x: x, y: size.height - rail))
-            x += stepX
         }
         return out
     }
@@ -147,9 +152,10 @@ enum Dock {
     /// Room kept clear at the end of the bottom row for the tail.
     static let tailRoom: CGFloat = 150
 
-    /// Where the newest come from, just right of the first port: the head.
+    /// Where the newest come from, just right of the first port, top right: the head.
     static func head(in size: CGSize) -> CGPoint {
-        CGPoint(x: size.width / 2 + box.width * 0.75, y: rail + gap + box.height / 2)
+        let first = ring(in: size).first?.center ?? CGPoint(x: size.width - tailRoom, y: rail + gap + box.height / 2)
+        return CGPoint(x: min(first.x + box.width * 0.75, size.width - 30), y: first.y)
     }
 
     /// Where the oldest go once past the last port: the tail.

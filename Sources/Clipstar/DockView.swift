@@ -52,7 +52,8 @@ struct DockView: View {
 
                 if line.revealed, live.contains(where: \.isText) {
                     TextLock(line: line)
-                        .position(x: size.width - 90, y: Dock.rail + 26)
+                        // On the clear right side, out of the rail's way.
+                        .position(x: size.width - 90, y: size.height / 2)
                 }
 
                 if line.items.isEmpty && line.revealed {
