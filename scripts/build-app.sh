@@ -26,10 +26,15 @@ build_arch() {
 
 # A universal binary, so it runs on Apple silicon and on Intel Macs, from
 # macOS 14 Sonoma onwards.
+# UNIVERSAL=1 builds for Intel too, for a release; day to day, Apple silicon only.
 OUT="$(mktemp -d)"
 build_arch arm64
-
-cp "$OUT/Clipstar-arm64" "$OUT/Clipstar"
+if [ "${UNIVERSAL:-0}" = 1 ]; then
+  build_arch x86_64
+  lipo -create "$OUT/Clipstar-arm64" "$OUT/Clipstar-x86_64" -output "$OUT/Clipstar"
+else
+  cp "$OUT/Clipstar-arm64" "$OUT/Clipstar"
+fi
 BIN="$OUT/Clipstar"
 
 rm -rf "$APP"
