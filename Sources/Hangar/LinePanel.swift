@@ -24,15 +24,23 @@ final class LinePanel: NSPanel {
     /// Two-finger swipes and the scroll wheel, for turning the ring.
     var onScroll: ((NSEvent) -> Void)?
 
+    /// Pinches on a trackpad, and Command and the wheel through apps like
+    /// Mac Mouse Fix, which turn that into a pinch.
+    var onMagnify: ((NSEvent) -> Void)?
+
     override func sendEvent(_ event: NSEvent) {
         if event.type == .scrollWheel, let onScroll {
             onScroll(event)
+        } else if event.type == .magnify, let onMagnify {
+            onMagnify(event)
         } else {
             super.sendEvent(event)
         }
     }
 
-    override var canBecomeKey: Bool { false }
+    /// Key while the dock is open on purpose, so pinches reach it: macOS
+    /// only sends those to the active app.
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     /// The dock opens on the screen you are using, which is the one with the

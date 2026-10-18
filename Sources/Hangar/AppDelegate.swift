@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var mouseTimer: Timer?
     private var escapeKey: HotKey?
+    /// The app that was in front when the dock took focus.
+    private var previousApp: NSRunningApplication?
     /// When the ring last turned, so a swipe keeps the mouse to the end.
     private var lastTurn = Date.distantPast
     /// Whether the swipe in progress zooms rather than slides.
@@ -103,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         panel.onScroll = { [weak self] event in self?.turnRing(event) }
+        panel.onMagnify = { [weak self] event in self?.pinch(event) }
 
         line.$items
             .receive(on: RunLoop.main)
@@ -414,6 +417,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // anything that checks what is on top, like screen automation.
         if on {
             if isPresent { panel.orderFrontRegardless() }
+            // Opened on purpose, the dock takes focus like Mission Control,
+            // so pinches and keys reach it; closing gives it back.
+            if openedOnPurpose, !NSApp.isActive {
+                previousApp = NSWorkspace.shared.frontmostApplication
+                NSApp.activate(ignoringOtherApps: true)
+                panel.makeKey()
+            }
         } else {
             // Long enough for the whole fleet to warp away; a peek goes at once.
             DispatchQueue.main.asyncAfter(deadline: .now() + (line.instant ? 0.05 : 0.85)) { [weak self] in
@@ -422,6 +432,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         if !on {
+            if let previous = previousApp {
+                previousApp = nil
+                previous.activate()
+            }
             pinned = false
             peekUntil = .distantPast
             panel.ignoresMouseEvents = true
@@ -703,6 +717,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { line.scroll(by: d > 0 ? 1 : -1) }
         }
+    }
+
+    /// A pinch zooms the card under the pointer, for as long as it lasts.
+    private func pinch(_ event: NSEvent) {
+        lastTurn = Date()
+        if event.phase == .began || line.zoomID == nil { zoomTarget() }
+        if event.phase == .ended || event.phase == .cancelled {
+            unzoom()
+            return
+        }
+        guard line.zoomID != nil else { return }
+        zoom(by: event.magnification * 2)
     }
 
     /// The card under the pointer becomes the one to zoom.
