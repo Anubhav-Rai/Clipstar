@@ -181,19 +181,10 @@ final class GrabView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         endPress()
         if downPoint != nil && !startedDrag && !didLongPress && event.clickCount == 1 {
-            // Waits as long as the system lets a second click count as a double click.
-            clickTimer?.invalidate()
-            // The copy goes ahead even if the line redraws this view meanwhile.
-            let copy = onClick
-            let timer = Timer(timeInterval: NSEvent.doubleClickInterval, repeats: false) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.clickTimer = nil
-                    copy()
-                }
-            }
-            // Keeps time while a menu or a drag runs the loop in another mode.
-            RunLoop.main.add(timer, forMode: .common)
-            clickTimer = timer
+            // Copies at once, without waiting to see whether a second click
+            // makes it a double click: a double click still opens it, with
+            // the copy already made.
+            onClick()
         }
         downPoint = nil
         didLongPress = false
