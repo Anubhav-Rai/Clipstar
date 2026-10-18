@@ -575,12 +575,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 hotZoneSince = since
                 if now.timeIntervalSince(since) >= Self.revealDelay {
                     hotZoneSince = nil
-                    if panel.screen != screen {
-                        panel.placeOnScreen()
-                        updateCapacity()
-                    }
-                    refresh()
-                    reveal()
+                    // Pointing at the icon is asking for the dock, like the
+                    // shortcut: it stays until you click away or press Escape.
+                    toggle()
                 }
             } else {
                 hotZoneSince = nil
