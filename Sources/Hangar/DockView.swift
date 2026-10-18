@@ -94,7 +94,6 @@ private struct Beacon: View {
             }
         }
         .opacity(on ? 1 : 0)
-        .animation(.easeOut(duration: 0.3), value: on)
         .allowsHitTesting(false)
     }
 }
@@ -128,7 +127,6 @@ private struct Swirl: View {
             }
         }
         .opacity(on ? 1 : 0)
-        .animation(.easeOut(duration: 0.3), value: on)
         .allowsHitTesting(false)
     }
 }
@@ -173,8 +171,18 @@ private struct SpaceBackground: View {
         .onChange(of: on) { _, now in now ? show() : hide() }
     }
 
-    private func show() { withAnimation(.easeOut(duration: instant ? 0.12 : 0.35)) { shown = 0.95 } }
-    private func hide() { withAnimation(instant ? .easeIn(duration: 0.15) : .easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
+    // A peek just appears and goes; only opening on purpose eases in.
+    private func show() {
+        if instant { set(0.95) } else { withAnimation(.easeOut(duration: 0.35)) { shown = 0.95 } }
+    }
+    private func hide() {
+        if instant { set(0) } else { withAnimation(.easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
+    }
+    private func set(_ value: Double) {
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t) { shown = value }
+    }
 }
 
 private struct Twinkle: View {

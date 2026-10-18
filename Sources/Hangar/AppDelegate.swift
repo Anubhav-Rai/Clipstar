@@ -396,8 +396,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if on {
             if isPresent { panel.orderFrontRegardless() }
         } else {
-            // Long enough for the whole fleet to warp away.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in
+            // Long enough for the whole fleet to warp away; a peek goes at once.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (line.instant ? 0.05 : 0.85)) { [weak self] in
                 guard let self, !self.isRevealed else { return }
                 self.panel.orderOut(nil)
             }

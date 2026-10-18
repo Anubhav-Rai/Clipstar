@@ -116,8 +116,10 @@ final class ScreenshotWatcher {
         pending?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.refresh() }
         pending = work
-        // macOS writes a hidden temp file and renames it; give it a moment.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        // macOS writes a hidden temp file, which the listing skips, and
+        // renames it in one step, so the finished file can be read almost at
+        // once; the short wait only gathers a burst of changes into one scan.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03, execute: work)
     }
 
     /// Reads the folder off the main thread. Sorting by creation date and
