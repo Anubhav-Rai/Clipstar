@@ -32,7 +32,7 @@ final class CaptureFlight {
     static let scan: CFTimeInterval = 0.32
     static let flight: CFTimeInterval = 0.8
 
-    private static let cyan = NSColor(red: 0.37, green: 0.96, blue: 1, alpha: 1)
+    private static let cyan = NSColor(red: 1, green: 0.88, blue: 0.54, alpha: 1)
 
     private let window: NSWindow
     private let container = CALayer()

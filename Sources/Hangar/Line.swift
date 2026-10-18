@@ -230,14 +230,20 @@ final class Line: ObservableObject {
         scroll = min(maxScroll, max(0, scroll.rounded()))
     }
 
-    /// Where a live screenshot sits on the ring, in ports from the first:
-    /// 0 is the first port after the gate, ports - 1 the last. Below 0 or
-    /// past the last, it is in the gate.
+    /// Where a live screenshot sits on the rail, in ports from the head:
+    /// 0 is the newest port. Turning the ring back brings older ones
+    /// forward; below 0 or past the last port, it is out of sight.
     func ringPosition(of id: UUID) -> CGFloat? {
         let live = items.filter { !$0.falling }
         guard let i = live.firstIndex(where: { $0.id == id }) else { return nil }
-        let first = CGFloat(max(0, live.count - ports)) - scroll
-        return CGFloat(i) - first
+        return CGFloat(live.count - 1 - i) - scroll
+    }
+
+    /// 1 for the newest, 2 for the one before, and so on.
+    func number(of id: UUID) -> Int? {
+        let live = items.filter { !$0.falling }
+        guard let i = live.firstIndex(where: { $0.id == id }) else { return nil }
+        return live.count - i
     }
 
     private func letGo(_ id: UUID) {

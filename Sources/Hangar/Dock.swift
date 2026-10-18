@@ -43,7 +43,8 @@ struct Slot: Equatable {
 enum Dock {
     static let rail: CGFloat = 12
     static let gap: CGFloat = 12
-    static let cyan = Color(red: 0.37, green: 0.96, blue: 1)
+    /// The accent: starlight gold.
+    static let cyan = Color(red: 1, green: 0.88, blue: 0.54)
     static let amber = Color(red: 1, green: 0.71, blue: 0.28)
 
     /// The box a card takes, whatever its proportions.
@@ -102,21 +103,48 @@ enum Dock {
         return out
     }
 
-    /// The same ports in ring order: clockwise from the top left, along the
-    /// top, down the right, back along the bottom and up the left, ending
-    /// next to the gate it started from.
+    /// The rail the screenshots ride, newest first: from the middle of the
+    /// top leftwards, down the left side, then along the bottom towards the
+    /// tail in the bottom right corner. The right side stays clear.
     static func ring(in size: CGSize) -> [Slot] {
-        let all = slots(in: size)
-        func part(_ side: Side, _ key: (Slot) -> CGFloat) -> [Slot] { all.filter { $0.side == side }.sorted { key($0) < key($1) } }
-        let ordered = part(.top) { $0.center.x } + part(.right) { $0.center.y }
-            + part(.bottom) { -$0.center.x } + part(.left) { -$0.center.y }
-        return ordered.enumerated().map { Slot(index: $0.offset, side: $0.element.side, port: $0.element.port, center: $0.element.center) }
+        let b = box
+        var out: [Slot] = []
+        func add(_ side: Side, _ center: CGPoint, _ port: CGPoint) {
+            out.append(Slot(index: out.count, side: side, port: port, center: center))
+        }
+        let topY = rail + gap + b.height / 2
+        let leftX = rail + gap + b.width / 2
+        let bottomY = size.height - rail - gap - b.height / 2
+        let stepX = b.width + 24, stepY = b.height + 18
+        var x = size.width / 2
+        while x - b.width / 2 >= leftX + b.width / 2 + 12 {
+            add(.top, CGPoint(x: x, y: topY), CGPoint(x: x, y: rail))
+            x -= stepX
+        }
+        var y = topY + stepY
+        while y + b.height / 2 <= bottomY - b.height / 2 - 12 {
+            add(.left, CGPoint(x: leftX, y: y), CGPoint(x: rail, y: y))
+            y += stepY
+        }
+        x = leftX + stepX / 2
+        while x + b.width / 2 <= size.width - tailRoom {
+            add(.bottom, CGPoint(x: x, y: bottomY), CGPoint(x: x, y: size.height - rail))
+            x += stepX
+        }
+        return out
     }
 
-    /// The warp gate in the top left corner, where screenshots that do not
-    /// fit wait for the ring to bring them round.
+    /// Room kept clear at the end of the bottom row for the tail.
+    static let tailRoom: CGFloat = 150
+
+    /// Where the newest come from, just right of the first port: the head.
+    static func head(in size: CGSize) -> CGPoint {
+        CGPoint(x: size.width / 2 + box.width * 0.75, y: rail + gap + box.height / 2)
+    }
+
+    /// Where the oldest go once past the last port: the tail.
     static func gate(in size: CGSize) -> CGPoint {
-        CGPoint(x: sideBand * 0.42, y: topBand * 0.45)
+        CGPoint(x: size.width - tailRoom / 2 - 10, y: size.height - rail - gap - box.height / 2)
     }
 
     /// Where a card is drawn at a position on the ring, in ports. Between
@@ -130,17 +158,18 @@ enum Dock {
         var spin: Double
     }
 
-    static func place(at p: CGFloat, ring: [Slot], gate: CGPoint) -> Placement? {
+    /// Position 0 is the newest port. Below 0 a card is drawn shrinking
+    /// into the head; past the last port, into the tail.
+    static func place(at p: CGFloat, ring: [Slot], head: CGPoint, tail: CGPoint) -> Placement? {
         guard let first = ring.first, let last = ring.last else { return nil }
         let n = CGFloat(ring.count)
-        // Into the gate over half a port past either end.
         if p < 0 || p > n - 1 {
             let beyond = p < 0 ? -p : p - (n - 1)
             let k = 1 - min(1, beyond / 0.5)
             guard k > 0.02 else { return nil }
-            let from = p < 0 ? first : last
-            let c = CGPoint(x: gate.x + (from.center.x - gate.x) * k, y: gate.y + (from.center.y - gate.y) * k)
-            return Placement(center: c, slot: from, scale: 0.15 + 0.85 * k, opacity: Double(k), spin: Double(1 - k) * 160)
+            let from = p < 0 ? first : last, to = p < 0 ? head : tail
+            let c = CGPoint(x: to.x + (from.center.x - to.x) * k, y: to.y + (from.center.y - to.y) * k)
+            return Placement(center: c, slot: from, scale: 0.25 + 0.75 * k, opacity: Double(k), spin: 0)
         }
         let i = Int(p.rounded(.down)), f = p - CGFloat(i)
         let a = ring[i], b = ring[min(i + 1, ring.count - 1)]
@@ -151,7 +180,7 @@ enum Dock {
     /// The middle of the screen, away from every band: the pointer resting
     /// here counts as having left the dock.
     static func inner(of size: CGSize) -> CGRect {
-        CGRect(x: sideBand, y: topBand, width: max(0, size.width - 2 * sideBand),
+        CGRect(x: sideBand, y: topBand, width: max(0, size.width - sideBand),
                height: max(0, size.height - 2 * topBand))
     }
 }

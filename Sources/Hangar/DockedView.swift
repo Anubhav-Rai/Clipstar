@@ -6,6 +6,8 @@ struct DockedView: View {
     let item: Pegged
     @ObservedObject var line: Line
     let slot: Slot
+    /// 1 for the newest.
+    let number: Int
 
     /// 1 is far past the edge of the screen, 0 is docked.
     @State private var warp: CGFloat = 1
@@ -161,7 +163,7 @@ struct DockedView: View {
             .resizable()
             .interpolation(.high)
             .frame(width: photoSize.width, height: photoSize.height)
-            .overlay(Scanlines().opacity(hovering ? 0.05 : 0.14))
+            .overlay(Scanlines().opacity(hovering ? 0.03 : 0.07))
             .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
             .overlay {
                 // A recording says so with a play button over its first frame.
@@ -182,7 +184,7 @@ struct DockedView: View {
                 RoundedRectangle(cornerRadius: Frame.radius, style: .continuous)
                     .stroke(Dock.cyan.opacity(hovering ? 1 : 0.7), lineWidth: hovering ? 1.6 : 1.1)
             )
-            .shadow(color: Dock.cyan.opacity(hovering ? 0.75 : 0.45), radius: hovering ? 12 : 6)
+            .shadow(color: Dock.cyan.opacity(hovering || number == 1 ? 0.8 : 0.4), radius: hovering || number == 1 ? 14 : 6)
             .scaleEffect(pressed ? 0.95 : (hovering ? 1.05 : 1))
             .animation(pressed ? .easeInOut(duration: 0.45) : .spring(response: 0.3, dampingFraction: 0.6), value: pressed)
             .opacity(dragging ? 0.45 : 1)
@@ -199,6 +201,18 @@ struct DockedView: View {
                     .padding(3)
                     .opacity(hovering && !dragging ? 1 : 0)
                     .scaleEffect(hovering ? 1 : 0.6)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .topTrailing) {
+                // How new it is: 1 is the newest.
+                Text("\(number)")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(number == 1 ? Color.black : Color.white)
+                    .frame(minWidth: 19, minHeight: 19)
+                    .padding(.horizontal, number > 9 ? 3 : 0)
+                    .background(number == 1 ? Dock.cyan : Color.black.opacity(0.85), in: Capsule())
+                    .overlay(Capsule().stroke(Dock.cyan.opacity(0.8), lineWidth: 1))
+                    .offset(x: 7, y: -7)
                     .allowsHitTesting(false)
             }
             .overlay(GrabArea(item: item, line: line))

@@ -23,8 +23,9 @@ enum Layout {
     static var cardWidth: CGFloat { (140 * size.scale).rounded() }
 }
 
-/// The whole screen while the dock is open: a HUD frame round the edges with
-/// a port for every screenshot, and the screenshots docked at them.
+/// The whole screen while the dock is open: the Milky Way behind, a trail
+/// of stardust along the rail, and the screenshots riding it, newest at the
+/// middle of the top.
 struct DockView: View {
     @ObservedObject var line: Line
 
@@ -32,19 +33,20 @@ struct DockView: View {
         GeometryReader { geo in
             let size = geo.size
             let ring = Dock.ring(in: size)
-            let gate = Dock.gate(in: size)
+            let head = Dock.head(in: size)
+            let tail = Dock.gate(in: size)
             let live = line.items.filter { !$0.falling }
-            let overflow = live.count > ring.count
+            let older = max(0, live.count - ring.count - Int(line.scroll.rounded()))
+            let newer = Int(line.scroll.rounded())
             ZStack(alignment: .topLeading) {
-                HUD(size: size, slots: ring, docked: Set(0..<min(live.count, ring.count)), on: line.revealed)
+                SpaceBackground(size: size, ring: ring, head: head, tail: tail, on: line.revealed)
                 Hyperspace(size: size, on: line.revealed)
 
-                if overflow {
-                    Gate(on: line.revealed)
-                        .position(gate)
-                    Counter(first: Int(CGFloat(live.count - ring.count) - line.scroll.rounded()) + 1,
-                            last: Int(CGFloat(live.count) - line.scroll.rounded()), total: live.count, on: line.revealed)
-                        .position(x: size.width / 2, y: Dock.topBand + 22)
+                if !live.isEmpty {
+                    Beacon(label: newer > 0 ? "+\(newer) newer" : nil, on: line.revealed)
+                        .position(head)
+                    Swirl(label: older > 0 ? "+\(older)" : nil, on: line.revealed)
+                        .position(tail)
                 }
 
                 if line.items.isEmpty && line.revealed {
@@ -54,12 +56,11 @@ struct DockView: View {
                 }
 
                 ForEach(line.items) { item in
-                    if let p = line.ringPosition(of: item.id),
-                       let place = Dock.place(at: p, ring: ring, gate: gate) {
-                        DockedView(item: item, line: line, slot: place.slot)
+                    if let p = line.ringPosition(of: item.id), let number = line.number(of: item.id),
+                       let place = Dock.place(at: p, ring: ring, head: head, tail: tail) {
+                        DockedView(item: item, line: line, slot: place.slot, number: number)
                             .frame(width: Dock.box.width, height: Dock.box.height)
                             .scaleEffect(place.scale)
-                            .rotationEffect(.degrees(place.spin))
                             .opacity(place.opacity)
                             .position(place.center)
                             .transition(.identity)
@@ -75,28 +76,22 @@ struct DockView: View {
     }
 }
 
-/// The warp gate: a spinning portal in the corner while some screenshots
-/// wait there.
-private struct Gate: View {
+/// The head of the rail, where the newest arrive: a bright star. While the
+/// ring is turned back it says how many newer ones are past it.
+private struct Beacon: View {
+    let label: String?
     let on: Bool
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: !on)) { context in
-            let a = context.date.timeIntervalSinceReferenceDate * 140
+            let pulse = 1 + 0.15 * sin(context.date.timeIntervalSinceReferenceDate * 4)
             ZStack {
                 Circle()
-                    .fill(RadialGradient(colors: [.white.opacity(0.8), Dock.cyan.opacity(0.5), Dock.cyan.opacity(0)],
-                                         center: .center, startRadius: 0, endRadius: 30))
-                    .frame(width: 60, height: 60)
-                Circle()
-                    .stroke(Dock.cyan, style: StrokeStyle(lineWidth: 2.5, dash: [14, 8]))
-                    .frame(width: 36, height: 36)
-                    .rotationEffect(.degrees(a))
-                    .shadow(color: Dock.cyan, radius: 4)
-                Circle()
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 1.4, dash: [6, 6]))
-                    .frame(width: 20, height: 20)
-                    .rotationEffect(.degrees(-a * 1.5))
+                    .fill(RadialGradient(colors: [.white.opacity(0.9), Dock.cyan.opacity(0.35), Dock.cyan.opacity(0)],
+                                         center: .center, startRadius: 0, endRadius: 34))
+                    .frame(width: 68, height: 68)
+                    .scaleEffect(pulse)
+                if let label { Tag(text: label).offset(y: 30) }
             }
         }
         .opacity(on ? 1 : 0)
@@ -105,24 +100,204 @@ private struct Gate: View {
     }
 }
 
-/// Which of them the ring shows, while there are more than ports.
-private struct Counter: View {
-    let first: Int
-    let last: Int
-    let total: Int
+/// The tail of the rail, where older ones wait: a swirl of stardust with
+/// how many are in it.
+private struct Swirl: View {
+    let label: String?
     let on: Bool
 
     var body: some View {
-        Text("\(first)–\(last) of \(total)")
-            .font(.system(size: 12, weight: .bold, design: .monospaced))
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !on)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            ZStack {
+                Canvas { ctx, size in
+                    let c = CGPoint(x: size.width / 2, y: size.height / 2)
+                    ctx.fill(Path(ellipseIn: CGRect(x: c.x - 40, y: c.y - 40, width: 80, height: 80)),
+                             with: .radialGradient(Gradient(colors: [Dock.cyan.opacity(0.5), Dock.cyan.opacity(0)]),
+                                                   center: c, startRadius: 0, endRadius: 40))
+                    for i in 0..<180 {
+                        let seed = Double(i)
+                        let a = seed * 2.39996 + t * (0.8 + (seed.truncatingRemainder(dividingBy: 7)) / 7)
+                        let d = 6 + (seed * 37).truncatingRemainder(dividingBy: 34)
+                        let p = CGPoint(x: c.x + cos(a) * d, y: c.y + sin(a) * d * 0.55)
+                        ctx.fill(Path(CGRect(x: p.x, y: p.y, width: 1.5, height: 1.5)),
+                                 with: .color(Dock.cyan.opacity(0.35 + 0.5 * (seed * 13).truncatingRemainder(dividingBy: 1))))
+                    }
+                }
+                .frame(width: 100, height: 70)
+                if let label { Tag(text: label).offset(y: -40) }
+            }
+        }
+        .opacity(on ? 1 : 0)
+        .animation(.easeOut(duration: 0.3), value: on)
+        .allowsHitTesting(false)
+    }
+}
+
+private struct Tag: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
             .foregroundStyle(Dock.cyan)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-            .background(Color.black.opacity(0.6), in: Capsule())
-            .overlay(Capsule().stroke(Dock.cyan.opacity(0.6), lineWidth: 1))
-            .opacity(on ? 1 : 0)
-            .animation(.easeOut(duration: 0.3), value: on)
-            .allowsHitTesting(false)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.black.opacity(0.65), in: Capsule())
+            .fixedSize()
+    }
+}
+
+/// The Milky Way behind the dock, drawn once for the screen's size, with a
+/// trail of stardust along the rail and a few bright stars that twinkle.
+private struct SpaceBackground: View {
+    let size: CGSize
+    let ring: [Slot]
+    let head: CGPoint
+    let tail: CGPoint
+    let on: Bool
+
+    @State private var shown: Double = 0
+
+    var body: some View {
+        ZStack {
+            if let sky = Sky.image(size: size, ring: ring, head: head, tail: tail) {
+                Image(decorative: sky, scale: 2).resizable()
+            }
+            Twinkle(size: size, on: on)
+        }
+        .frame(width: size.width, height: size.height)
+        .opacity(shown)
+        .allowsHitTesting(false)
+        .onAppear { if on { show() } }
+        .onChange(of: on) { _, now in now ? show() : hide() }
+    }
+
+    private func show() { withAnimation(.easeOut(duration: 0.35)) { shown = 0.95 } }
+    private func hide() { withAnimation(.easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
+}
+
+private struct Twinkle: View {
+    let size: CGSize
+    let on: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: !on)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, _ in
+                var r = Sky.Random(seed: 77)
+                for _ in 0..<140 {
+                    let x = r.next() * size.width, y = r.next() * size.height, ph = r.next() * 6.28
+                    let a = 0.5 + 0.5 * sin(t * 2.5 + ph)
+                    let s = 1 + r.next() * 1.4
+                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: s, height: s)), with: .color(.white.opacity(a)))
+                }
+            }
+        }
+    }
+}
+
+/// Paints the sky into an image, kept for as long as the screen and the
+/// rail stay the same.
+enum Sky {
+    struct Random {
+        var s: UInt64
+        init(seed: UInt64) { s = seed &* 6364136223846793005 &+ 1442695040888963407 }
+        mutating func next() -> CGFloat {
+            s = s &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat(s >> 33) / CGFloat(1 << 31)
+        }
+    }
+
+    private static var cache: (key: String, image: CGImage)?
+
+    @MainActor
+    static func image(size: CGSize, ring: [Slot], head: CGPoint, tail: CGPoint) -> CGImage? {
+        let key = "\(size.width)x\(size.height)-\(ring.count)-\(Layout.size.rawValue)"
+        if let cache, cache.key == key { return cache.image }
+        let w = Int(size.width * 2), h = Int(size.height * 2)
+        guard w > 0, h > 0, let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.scaleBy(x: 2, y: 2)
+        // Flip so y grows downwards, like the view.
+        ctx.translateBy(x: 0, y: size.height)
+        ctx.scaleBy(x: 1, y: -1)
+        var r = Random(seed: 11)
+        func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat) -> CGColor { CGColor(srgbRed: r, green: g, blue: b, alpha: a) }
+        func glow(_ c: CGPoint, _ radius: CGFloat, _ color: (CGFloat, CGFloat, CGFloat), _ a: CGFloat) {
+            let g = CGGradient(colorsSpace: nil, colors: [rgb(color.0, color.1, color.2, a), rgb(color.0, color.1, color.2, 0)] as CFArray, locations: [0, 1])!
+            ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: radius, options: [])
+        }
+
+        // Deep space.
+        let bg = CGGradient(colorsSpace: nil, colors: [rgb(0.012, 0.02, 0.06, 1), rgb(0.04, 0.063, 0.14, 1)] as CFArray, locations: [0, 1])!
+        ctx.drawLinearGradient(bg, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
+
+        // Stars everywhere.
+        let area = size.width * size.height
+        for _ in 0..<Int(area / 260) {
+            let s = r.next() * 1.3 + 0.3
+            ctx.setFillColor(rgb(1, 1, 1, 0.25 + r.next() * 0.6))
+            ctx.fill(CGRect(x: r.next() * size.width, y: r.next() * size.height, width: s, height: s))
+        }
+
+        // The Milky Way: a dense band of warm stars across the screen.
+        ctx.saveGState()
+        ctx.translateBy(x: size.width / 2, y: size.height / 2)
+        ctx.rotate(by: -0.42)
+        ctx.setBlendMode(.plusLighter)
+        glow(.zero, size.width * 0.38, (1, 0.9, 0.72), 0.2)
+        glow(CGPoint(x: -size.width * 0.15, y: 10), size.width * 0.16, (1, 0.72, 0.54), 0.16)
+        glow(CGPoint(x: size.width * 0.17, y: -8), size.width * 0.17, (0.72, 0.78, 1), 0.14)
+        let spread = size.height * 0.08
+        for _ in 0..<Int(area / 70) {
+            let x = (r.next() - 0.5) * size.width * 1.6
+            let y = (r.next() + r.next() + r.next() - 1.5) * spread
+            ctx.setFillColor(rgb(1, 0.88 + r.next() * 0.12, 0.76 + r.next() * 0.24, 0.12 + r.next() * 0.45))
+            ctx.fill(CGRect(x: x, y: y, width: 1.1, height: 1.1))
+        }
+        // Dark dust lanes through the middle of the band.
+        ctx.setBlendMode(.normal)
+        for i in 0..<6 {
+            let x = (CGFloat(i) / 5 - 0.5) * size.width * 1.1
+            let lane = CGGradient(colorsSpace: nil, colors: [rgb(0.01, 0.015, 0.04, 0.35), rgb(0.01, 0.015, 0.04, 0)] as CFArray, locations: [0, 1])!
+            ctx.drawRadialGradient(lane, startCenter: CGPoint(x: x, y: (r.next() - 0.5) * spread), startRadius: 0,
+                                   endCenter: CGPoint(x: x, y: 0), endRadius: spread * 1.4, options: [])
+        }
+        ctx.restoreGState()
+
+        // A couple of far galaxies.
+        ctx.setBlendMode(.plusLighter)
+        for (cx, cy, rad, col) in [(0.78, 0.22, 30.0, (0.75, 0.8, 1.0)), (0.32, 0.7, 22.0, (1.0, 0.78, 0.9))] as [(CGFloat, CGFloat, CGFloat, (CGFloat, CGFloat, CGFloat))] {
+            ctx.saveGState()
+            ctx.translateBy(x: size.width * cx, y: size.height * cy)
+            ctx.rotate(by: 0.5)
+            ctx.scaleBy(x: 1, y: 0.4)
+            glow(.zero, rad, col, 0.55)
+            glow(.zero, rad * 0.3, (1, 1, 1), 0.7)
+            ctx.restoreGState()
+        }
+
+        // Stardust along the rail, from the head through every port to the tail.
+        var path = [head] + ring.map(\.center) + [tail]
+        if path.count < 2 { path = [head, tail] }
+        let b = Dock.box
+        for i in 0..<(path.count - 1) {
+            let a = path[i], c = path[i + 1]
+            let len = hypot(c.x - a.x, c.y - a.y)
+            for _ in 0..<Int(len * 1.6) {
+                let k = r.next()
+                let jx = (r.next() - 0.5) * b.width * 0.5, jy = (r.next() - 0.5) * b.height * 0.5
+                ctx.setFillColor(rgb(1, 0.88, 0.54, 0.15 + r.next() * 0.5))
+                let s = 1 + r.next() * 0.8
+                ctx.fill(CGRect(x: a.x + (c.x - a.x) * k + jx, y: a.y + (c.y - a.y) * k + jy, width: s, height: s))
+            }
+        }
+
+        guard let image = ctx.makeImage() else { return nil }
+        cache = (key, image)
+        return image
     }
 }
 

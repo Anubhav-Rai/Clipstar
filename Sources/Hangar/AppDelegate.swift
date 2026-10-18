@@ -334,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func cardFrame(for id: UUID) -> (CGRect, Slot)? {
         let size = panel.frame.size
         guard let item = line.items.first(where: { $0.id == id }), let p = line.ringPosition(of: id),
-              let place = Dock.place(at: p, ring: Dock.ring(in: size), gate: Dock.gate(in: size)) else { return nil }
+              let place = Dock.place(at: p, ring: Dock.ring(in: size), head: Dock.head(in: size), tail: Dock.gate(in: size)) else { return nil }
         let card = DockedView.cardSize(for: item.thumb.size)
         return (CGRect(x: panel.frame.minX + place.center.x - card.width / 2,
                        y: panel.frame.maxY - place.center.y - card.height / 2,
@@ -611,7 +611,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// As many as the dock has ports on this screen.
     private func updateCapacity() {
-        let ports = max(4, Dock.slots(in: panel.frame.size).count)
+        let ports = max(4, Dock.ring(in: panel.frame.size).count)
         guard ports != line.ports else { return }
         line.ports = ports
         line.trim()
