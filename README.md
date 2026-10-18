@@ -31,6 +31,8 @@ Needs macOS 14 or later and Swift (the Command Line Tools are enough, no Xcode).
     scripts/build-app.sh
     open build/Clipstar.app
 
+Built without a certificate, the app is signed ad hoc, and macOS asks again for folder access after every rebuild. To keep its answers, make a code signing certificate named `Clipstar Local Signing` in Keychain Access (Certificate Assistant, Create a Certificate, type Code Signing); the build script uses it when it finds it.
+
 ## Credits and thanks
 
 Clipstar exists because of **[Tendedero](https://github.com/alejandrobujan/tendedero)** by **[Alejandro Buján](https://github.com/alejandrobujan)**, and all the credit for its foundations goes to him.

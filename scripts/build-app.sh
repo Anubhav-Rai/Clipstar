@@ -88,9 +88,16 @@ PLIST
 # set), with the hardened runtime and a secure timestamp that notarization
 # requires. Without one, sign ad hoc so the app still runs locally.
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
+# A personal certificate named "Clipstar Local Signing" in the keychain, if
+# there is one, keeps the same signature from build to build, so macOS
+# remembers the permissions you gave (Downloads, Desktop) after updates.
+LOCAL="${LOCAL_SIGN_IDENTITY:-Clipstar Local Signing}"
 if [ -n "$IDENTITY" ]; then
   codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
   echo "Signed with $IDENTITY"
+elif security find-certificate -c "$LOCAL" >/dev/null 2>&1; then
+  codesign --force --deep --sign "$LOCAL" "$APP" 2>&1 | grep -v "replacing existing signature" || true
+  echo "Signed with $LOCAL"
 else
   codesign --force --deep --sign - "$APP" >/dev/null
   echo "Signed ad hoc (no Developer ID found)"
