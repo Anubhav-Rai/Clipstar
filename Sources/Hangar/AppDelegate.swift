@@ -87,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restoreSettingsOnTermination()
         startWatcher()
         clipboardWatcher = ClipboardWatcher { [weak self] url in self?.hangCapture(url) }
-        if ClipboardWatcher.isEnabled { clipboardWatcher.start() }
+        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled { clipboardWatcher.start() }
 
         registerShortcut()
 
@@ -250,8 +250,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Watching the clipboard is opt in, from the menu bar only.
     private func setClipboard(_ on: Bool) {
         ClipboardWatcher.isEnabled = on
-        if on { clipboardWatcher.start() } else { clipboardWatcher.stop() }
+        syncClipboardWatcher()
         updateStatusIcon()
+    }
+
+    private func setClipboardText(_ on: Bool) {
+        ClipboardWatcher.isTextEnabled = on
+        syncClipboardWatcher()
+    }
+
+    private func syncClipboardWatcher() {
+        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled { clipboardWatcher.start() } else { clipboardWatcher.stop() }
     }
 
     /// Quitting from the menu or logging out runs applicationWillTerminate.
@@ -403,6 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Closing is at once, except after a copy: then the cards warp away
         // and the stars fade.
         if !on {
+            line.textUnlocked = false
             line.instant = !gracefully
             line.zoom = 1
             line.zoomID = nil
@@ -494,6 +504,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return NSRect(x: screen.frame.minX, y: screen.frame.maxY - h, width: screen.frame.width, height: h)
     }
 
+    /// Whether the pointer is near Hangar's icon in the menu bar of this
+    /// screen. Every screen shows the icon at the same distance from its
+    /// right edge as the one the status item reports.
+    private func nearIcon(_ mouse: NSPoint, on screen: NSScreen) -> Bool {
+        guard let window = statusItem.button?.window,
+              let home = window.screen ?? NSScreen.screens.first(where: { $0.frame.intersects(window.frame) }) else { return false }
+        let fromRight = home.frame.maxX - window.frame.midX
+        return abs(mouse.x - (screen.frame.maxX - fromRight)) <= 36
+    }
+
     /// A click anywhere in the top bar of any screen, a menu or an icon, puts the line away.
     private func watchMenuBarClicks() {
         let handler: (NSEvent?) -> Void = { [weak self] _ in
@@ -550,7 +570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // An empty line stays up there: only the shortcut and the menu
             // bring it down on purpose.
             if line.liveCount > 0, Self.opensFromMenuBar, let screen = screenUnderPointer,
-               inMenuBar, !menuBarSuppressed, !FullScreen.blocksLine(on: screen) {
+               inMenuBar, nearIcon(mouse, on: screen), !menuBarSuppressed, !FullScreen.blocksLine(on: screen) {
                 let since = hotZoneSince ?? now
                 hotZoneSince = since
                 if now.timeIntervalSince(since) >= Self.revealDelay {
@@ -873,12 +893,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.setClipboard(!ClipboardWatcher.isEnabled)
         }
         clipboard.state = ClipboardWatcher.isEnabled ? .on : .off
+        let text = ClosureMenuItem(L("Dock copied text")) { [weak self] in
+            self?.setClipboardText(!ClipboardWatcher.isTextEnabled)
+        }
+        text.state = ClipboardWatcher.isTextEnabled ? .on : .off
+        text.toolTip = L("Shown as asterisks until Touch ID or your password unlocks it")
         clipboard.toolTip = L("Images you copy hang on the line too")
         menu.addItem(clipboard)
+        menu.addItem(text)
 
         let bringDown = NSMenuItem(title: L("Bring the line down"), action: nil, keyEquivalent: "")
         let options = NSMenu()
-        let hover = ClosureMenuItem(L("When the pointer rests in the menu bar")) {
+        let hover = ClosureMenuItem(L("When the pointer rests on the icon")) {
             AppDelegate.opensFromMenuBar.toggle()
         }
         hover.state = Self.opensFromMenuBar ? .on : .off

@@ -40,7 +40,7 @@
 "Light" = "Light";
 "Faint" = "Faint";
 "Bring the line down" = "Open the dock";
-"When the pointer rests in the menu bar" = "When the pointer rests in the menu bar";
+"When the pointer rests on the icon" = "When the pointer rests near the icon";
 "When something new hangs" = "When something new docks";
 "Over full screen apps" = "Over full screen apps";
 "Hang copied images" = "Dock copied images";
@@ -66,3 +66,9 @@
 
 /* PeggedView */
 "Copied" = "Copied";
+"Dock copied text" = "Dock copied text";
+"Shown as asterisks until Touch ID or your password unlocks it" = "Shown as asterisks until Touch ID or your password unlocks it";
+"show your copied text" = "show your copied text";
+"Show Text…" = "Show Text…";
+"Show text" = "Show text";
+"Hide text" = "Hide text";

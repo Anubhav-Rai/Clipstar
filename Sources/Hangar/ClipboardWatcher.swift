@@ -75,7 +75,7 @@ final class ClipboardWatcher {
         // Image files copied in Finder dock as they are, from where they
         // live; nothing is copied into Hangar's folder. A file already docked,
         // like one copied from the dock itself, is not docked twice.
-        if let items = pb.pasteboardItems, !items.isEmpty,
+        if Self.isEnabled, let items = pb.pasteboardItems, !items.isEmpty,
            items.allSatisfy({ Self.privateTypes.isDisjoint(with: $0.types) }),
            let files = pb.readObjects(forClasses: [NSURL.self], options: [
                .urlReadingFileURLsOnly: true,
@@ -84,7 +84,16 @@ final class ClipboardWatcher {
             files.forEach(onImage)
             return
         }
-        guard let items = pb.pasteboardItems, !items.isEmpty,
+        // Copied text, unless private or temporary, or a file's name.
+        if Self.isTextEnabled, let items = pb.pasteboardItems, !items.isEmpty,
+           items.allSatisfy({ Self.privateTypes.isDisjoint(with: $0.types) && !$0.types.contains(.fileURL) }),
+           pb.availableType(from: [.png, .tiff]) == nil,
+           let text = pb.string(forType: .string),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.utf8.count <= 1_000_000 {
+            saveText(text)
+            return
+        }
+        guard Self.isEnabled, let items = pb.pasteboardItems, !items.isEmpty,
               items.allSatisfy({ Self.ignoredTypes.isDisjoint(with: $0.types) }),
               let type = pb.availableType(from: [.png, .tiff]),
               let data = pb.data(forType: type), data.count <= Self.maxBytes,
@@ -107,6 +116,36 @@ final class ClipboardWatcher {
               rep.pixelsWide > 0, rep.pixelsHigh > 0,
               rep.pixelsWide <= maxPixels / rep.pixelsHigh else { return nil }
         return type == .png ? data : rep.representation(using: .png, properties: [:])
+    }
+
+    /// Copied text docks too, on by default; Dock copied text in the menu.
+    static var isTextEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "clipboardTextEnabled") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "clipboardTextEnabled") }
+    }
+
+    private var lastText: (text: String, url: URL)?
+
+    /// Kept as a text file only you can read, in Hangar's folder.
+    private func saveText(_ text: String) {
+        if let lastText, lastText.text == text, FileManager.default.fileExists(atPath: lastText.url.path) { return }
+        let fm = FileManager.default
+        var url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()).txt")
+        var n = 2
+        while fm.fileExists(atPath: url.path) {
+            url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()) \(n).txt")
+            n += 1
+        }
+        do {
+            try fm.createDirectory(at: Inbox.folder, withIntermediateDirectories: true)
+            try Data(text.utf8).write(to: url, options: .atomic)
+            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            lastText = (text, url)
+            onImage(url)
+        } catch {
+            try? fm.removeItem(at: url)
+            log.error("Could not save copied text: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private func save(_ png: Data) {

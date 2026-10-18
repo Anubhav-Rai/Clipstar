@@ -49,6 +49,11 @@ struct DockView: View {
                         .position(tail)
                 }
 
+                if line.revealed, live.contains(where: \.isText) {
+                    TextLock(line: line)
+                        .position(x: size.width - 90, y: Dock.rail + 26)
+                }
+
                 if line.items.isEmpty && line.revealed {
                     Hint()
                         .position(x: size.width / 2, y: size.height / 2)
@@ -89,6 +94,36 @@ struct DockView: View {
         guard let z = zoomedAt, id != line.zoomID else { return p }
         let push = (line.zoom - 1) * 0.6
         return p < z ? p - push : p + push
+    }
+}
+
+/// One button for every piece of copied text in the dock: shows them all
+/// after Touch ID or the password, and hides them again.
+private struct TextLock: View {
+    @ObservedObject var line: Line
+
+    /// Reported with the cards' frames, so the dock lets clicks reach it.
+    static let id = UUID()
+
+    var body: some View {
+        Button {
+            if line.textUnlocked { line.textUnlocked = false } else { line.unlockText() }
+        } label: {
+            Label(line.textUnlocked ? L("Hide text") : L("Show text"),
+                  systemImage: line.textUnlocked ? "lock.open.fill" : "lock.fill")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Dock.cyan)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.7), in: Capsule())
+                .overlay(Capsule().stroke(Dock.cyan.opacity(0.8), lineWidth: 1))
+                .shadow(color: Dock.cyan.opacity(0.5), radius: 6)
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .background(GeometryReader { g in
+            Color.clear.preference(key: HitRectsKey.self, value: [Self.id: g.frame(in: .global)])
+        })
     }
 }
 

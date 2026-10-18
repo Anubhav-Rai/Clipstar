@@ -183,10 +183,19 @@ struct DockedView: View {
 
     private var photoSize: CGSize { Self.photoSize(for: item.thumb.size) }
 
+    /// A picture, or copied text: asterisks until unlocked.
+    @ViewBuilder private var face: some View {
+        if item.isText {
+            TextFace(url: item.url, unlocked: line.textUnlocked)
+        } else {
+            Image(nsImage: full ?? item.thumb)
+                .resizable()
+                .interpolation(.high)
+        }
+    }
+
     private var card: some View {
-        Image(nsImage: full ?? item.thumb)
-            .resizable()
-            .interpolation(.high)
+        face
             .frame(width: photoSize.width, height: photoSize.height)
             .overlay(Scanlines().opacity(hovering ? 0.03 : 0.07))
             .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
@@ -308,4 +317,38 @@ private struct Clamp: Shape {
 enum Frame {
     static let radius: CGFloat = 10
     static let inset: CGFloat = 4
+}
+
+/// Copied text on a card. Locked, every character shows as an asterisk,
+/// keeping the shape of the lines. One button in the dock shows them all.
+private struct TextFace: View {
+    let url: URL
+    let unlocked: Bool
+
+    @State private var text = ""
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color(red: 0.06, green: 0.07, blue: 0.12)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("TEXT · \(text.count)")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Dock.cyan.opacity(0.7))
+                Text(unlocked ? text : masked)
+                    .font(.system(size: unlocked ? 9 : 11, weight: unlocked ? .regular : .bold, design: .monospaced))
+                    .foregroundStyle(unlocked ? Color.white : Dock.cyan)
+                    .lineLimit(unlocked ? 8 : 3)
+                    .truncationMode(.tail)
+            }
+            .padding(8)
+        }
+        .onAppear { text = (try? String(contentsOf: url, encoding: .utf8)) ?? "" }
+    }
+
+    /// Each character an asterisk, up to a few lines' worth.
+    private var masked: String {
+        text.split(separator: "\n", omittingEmptySubsequences: true).prefix(3)
+            .map { String(repeating: "*", count: min(max($0.count, 3), 18)) }
+            .joined(separator: "\n")
+    }
 }
