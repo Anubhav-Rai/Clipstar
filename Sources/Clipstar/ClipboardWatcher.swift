@@ -44,7 +44,7 @@ final class ClipboardWatcher {
     ]
 
     /// Anything bigger is not a screenshot.
-    nonisolated private static let maxBytes = 64 * 1024 * 1024
+    private static let maxBytes = 64 * 1024 * 1024
     nonisolated private static let maxPixels = 80_000_000
 
     init(onImage: @escaping (URL) -> Void) {
@@ -72,12 +72,6 @@ final class ClipboardWatcher {
         let count = pb.changeCount
         guard count != lastCount else { return }
         lastCount = count
-        // Copied on the iPhone and handed over by Universal Clipboard. Only
-        // with Dock iPhone copies on, whatever the Mac's own switches say.
-        if let items = pb.pasteboardItems, items.contains(where: { $0.types.contains(Self.remoteType) }) {
-            if Self.isRemoteEnabled { fetchRemote(count) }
-            return
-        }
         // Image files copied in Finder dock as they are, from where they
         // live; nothing is copied into Clipstar's folder. A file already docked,
         // like one copied from the dock itself, is not docked twice.
@@ -124,38 +118,6 @@ final class ClipboardWatcher {
         return type == .png ? data : rep.representation(using: .png, properties: [:])
     }
 
-    /// macOS marks what came from another device with this.
-    private static let remoteType = NSPasteboard.PasteboardType("com.apple.is-remote-clipboard")
-
-    /// Dock iPhone copies, from the menu. Off until turned on.
-    static var isRemoteEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "iPhoneCopies") }
-        set { UserDefaults.standard.set(newValue, forKey: "iPhoneCopies") }
-    }
-
-    /// The iPhone sends what was copied only once it is read, which takes a
-    /// moment over the air, so it is read off the main thread and saved
-    /// straight away: the Mac forgets it after a couple of minutes.
-    private func fetchRemote(_ count: Int) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let pb = NSPasteboard.general
-            var png: Data?
-            var text: String?
-            if let type = pb.availableType(from: [.png, .tiff]), let data = pb.data(forType: type),
-               data.count <= ClipboardWatcher.maxBytes {
-                png = ClipboardWatcher.png(from: data, type: type)
-            } else if let string = pb.string(forType: .string),
-                      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, string.utf8.count <= 1_000_000 {
-                text = string
-            }
-            DispatchQueue.main.async {
-                // Copied over again in the meantime: that copy is the one that counts.
-                guard let self, NSPasteboard.general.changeCount == count else { return }
-                if let png { self.save(png, from: "iPhone") } else if let text { self.saveText(text, from: "iPhone") }
-            }
-        }
-    }
-
     /// Copied text docks too, on by default; Dock copied text in the menu.
     static var isTextEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "clipboardTextEnabled") as? Bool ?? true }
@@ -165,13 +127,13 @@ final class ClipboardWatcher {
     private var lastText: (text: String, url: URL)?
 
     /// Kept as a text file only you can read, in Clipstar's folder.
-    private func saveText(_ text: String, from source: String = "Clipboard") {
+    private func saveText(_ text: String) {
         if let lastText, lastText.text == text, FileManager.default.fileExists(atPath: lastText.url.path) { return }
         let fm = FileManager.default
-        var url = Inbox.folder.appendingPathComponent("\(source) \(Self.stamp()).txt")
+        var url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()).txt")
         var n = 2
         while fm.fileExists(atPath: url.path) {
-            url = Inbox.folder.appendingPathComponent("\(source) \(Self.stamp()) \(n).txt")
+            url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()) \(n).txt")
             n += 1
         }
         do {
@@ -186,13 +148,13 @@ final class ClipboardWatcher {
         }
     }
 
-    private func save(_ png: Data, from source: String = "Clipboard") {
+    private func save(_ png: Data) {
         if let last, last.png == png, FileManager.default.fileExists(atPath: last.url.path) { return }
         let fm = FileManager.default
-        var url = Inbox.folder.appendingPathComponent("\(source) \(Self.stamp()).png")
+        var url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()).png")
         var n = 2
         while fm.fileExists(atPath: url.path) {
-            url = Inbox.folder.appendingPathComponent("\(source) \(Self.stamp()) \(n).png")
+            url = Inbox.folder.appendingPathComponent("Clipboard \(Self.stamp()) \(n).png")
             n += 1
         }
         do {

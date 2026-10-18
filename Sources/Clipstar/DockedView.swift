@@ -249,19 +249,6 @@ struct DockedView: View {
                     .offset(x: 7, y: -7)
                     .allowsHitTesting(false)
             }
-            .overlay(alignment: .bottomLeading) {
-                // From the iPhone.
-                if item.isFromPhone {
-                    Image(systemName: "iphone")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Dock.cyan)
-                        .frame(width: 19, height: 19)
-                        .background(Color.black.opacity(0.85), in: Circle())
-                        .overlay(Circle().stroke(Dock.cyan.opacity(0.8), lineWidth: 1))
-                        .offset(x: -7, y: 7)
-                        .allowsHitTesting(false)
-                }
-            }
             .overlay(GrabArea(item: item, line: line))
             .overlay(alignment: slot.side == .bottom ? .top : .bottom) {
                 if copied {
@@ -361,7 +348,7 @@ private struct TextFace: View {
     /// Each character an asterisk, up to a few lines' worth.
     private var masked: String {
         text.split(separator: "\n", omittingEmptySubsequences: true).prefix(3)
-            .map { String(repeating: "*", count: min(max($0.count, 3), 14)) }
+            .map { String(repeating: "*", count: min(max($0.count, 3), 18)) }
             .joined(separator: "\n")
     }
 }

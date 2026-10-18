@@ -18,7 +18,6 @@ A space-themed fork of [Tendedero](https://github.com/alejandrobujan/tendedero) 
 - **Slide** along the rail with a sideways two-finger swipe, or the mouse wheel.
 - **Zoom** a card up to 2× with an up and down swipe, a pinch, or ⌘ and the wheel. It grows only while you do it; the cards beside it move aside.
 - **Click** a card to copy it. It says Copied, and the dock gets out of the way, back to the app you were in, ready to paste. Drag a card into any app or folder, double click to open, hold for Markup, right click for more.
-- **iPhone too (optional).** Turn on Dock iPhone copies and whatever you copy on your iPhone docks here through Universal Clipboard, with a little iPhone badge. A two-step Send to Clipstar shortcut on the iPhone brings screenshots and photos as well, through iCloud Drive; iPhone Setup… in the menu shows how.
 - **Pin on Top.** Right click a card and pin it: it floats in its own little window over every app, to drag, pinch to zoom and close when you're done.
 - **Copied text stays private.** Text shows as asterisks. One **Show text** button asks for Touch ID or your password, and it locks again when the dock closes. Anything a password manager marks as private is never kept.
 - **Close** with a click on empty space, Escape or ⌃⌥H.
