@@ -53,6 +53,8 @@ final class Line: ObservableObject {
         }
     }
     private var relock: DispatchWorkItem?
+    /// The Touch ID or password prompt is up; clicks in it are not clicks away.
+    var authenticating = false
 
     /// Keep text shown, from the menu, in minutes: 60 out of the box. -1
     /// locks it again when the dock closes, 0 only when Clipstar quits.
@@ -238,9 +240,12 @@ final class Line: ObservableObject {
             return
         }
         let context = LAContext()
+        authenticating = true
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: L("show your copied text")) { ok, _ in
             Task { @MainActor [weak self] in
-                guard ok, let self else { return }
+                guard let self else { return }
+                self.authenticating = false
+                guard ok else { return }
                 self.textUnlocked = true
                 action?()
             }

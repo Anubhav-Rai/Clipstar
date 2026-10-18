@@ -547,6 +547,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: handler) {
             clickMonitors.append(global)
         }
+        // While the dock is open it takes every click on its own screen, so a
+        // click another app gets is somewhere else: on another display, or a
+        // window above it. That closes the dock too, except during the Touch
+        // ID or password prompt for Show text.
+        if let elsewhere = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isRevealed, !self.line.authenticating else { return }
+                self.pinned = false
+                self.setRevealed(false)
+            }
+        }) {
+            clickMonitors.append(elsewhere)
+        }
         // A click on empty space in the open dock closes it, and goes no
         // further. Clicks on a card are the card's.
         if let away = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
