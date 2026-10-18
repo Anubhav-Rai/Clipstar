@@ -7,7 +7,7 @@ import SwiftUI
 /// Hulls are drawn in design units round a screenshot 50 wide and 32 tall,
 /// centred on (0, 0), stretched to the screenshot's real size.
 enum Skin: String, CaseIterable {
-    case card, starfighter, shuttle, freighter, saucer, rocket, satellite, xwing, capsule, module, brass, stealth
+    case card, starfighter, shuttle, freighter, rocket, satellite, xwing, capsule, module, stealth
 
     static var current: Skin {
         get { Skin(rawValue: UserDefaults.standard.string(forKey: "skin") ?? "") ?? .card }
@@ -20,13 +20,11 @@ enum Skin: String, CaseIterable {
         case .starfighter: L("Starfighter")
         case .shuttle: L("Shuttle")
         case .freighter: L("Freighter")
-        case .saucer: L("Saucer")
         case .rocket: L("Rocket")
         case .satellite: L("Satellite")
         case .xwing: L("X-Wing")
         case .capsule: L("Capsule")
         case .module: L("Station Module")
-        case .brass: L("Brass Rocket")
         case .stealth: L("Stealth")
         }
     }
@@ -39,13 +37,11 @@ enum Skin: String, CaseIterable {
         case .starfighter: CGSize(width: 20, height: 14)
         case .shuttle: CGSize(width: 18, height: 18)
         case .freighter: CGSize(width: 14, height: 10)
-        case .saucer: CGSize(width: 22, height: 11)
         case .rocket: CGSize(width: 10, height: 22)
         case .satellite: CGSize(width: 36, height: 13)
         case .xwing: CGSize(width: 24, height: 16)
         case .capsule: CGSize(width: 9, height: 10)
         case .module: CGSize(width: 13, height: 6)
-        case .brass: CGSize(width: 18, height: 18)
         case .stealth: CGSize(width: 26, height: 16)
         }
     }
@@ -78,9 +74,8 @@ enum Skin: String, CaseIterable {
         switch self {
         case .card: [CGPoint(x: 0, y: 19)]
         case .starfighter: [CGPoint(x: -17, y: 23), CGPoint(x: 17, y: 23)]
-        case .shuttle, .rocket, .capsule, .brass: [CGPoint(x: 0, y: 26)]
+        case .shuttle, .rocket, .capsule: [CGPoint(x: 0, y: 26)]
         case .freighter: [CGPoint(x: -23, y: 24), CGPoint(x: 0, y: 24), CGPoint(x: 23, y: 24)]
-        case .saucer: [CGPoint(x: 0, y: 24)]
         case .satellite: [CGPoint(x: -19, y: 19), CGPoint(x: 19, y: 19)]
         case .xwing: [CGPoint(x: -45, y: 18), CGPoint(x: 45, y: 18)]
         case .module: [CGPoint(x: -34, y: 18), CGPoint(x: 34, y: 18)]
@@ -93,8 +88,6 @@ enum Skin: String, CaseIterable {
         switch self {
         case .card: Frame.radius - Frame.inset
         case .starfighter, .rocket: 10
-        case .saucer: 18
-        case .brass: 40
         case .xwing: 8
         default: 4
         }
@@ -172,16 +165,6 @@ struct Hull: View {
             }
             c.fill(Path(CGRect(x: -39, y: -6, width: 6, height: 14)), with: .color(dark))
             c.fill(Path(CGRect(x: 33, y: -6, width: 6, height: 14)), with: .color(dark))
-        case .saucer:
-            c.fill(Path(ellipseIn: CGRect(x: -47, y: 3, width: 94, height: 22)),
-                   with: metal(from: CGPoint(x: -47, y: 0), to: CGPoint(x: 47, y: 0)))
-            for k in 0..<7 {
-                let a = Double(k) / 7 * .pi
-                let x = cos(a) * 39
-                c.fill(Path(ellipseIn: CGRect(x: x - 2, y: 16, width: 4, height: 4)), with: .color(k % 2 == 0 ? gold : cyan))
-            }
-            c.stroke(Path(ellipseIn: CGRect(x: -27, y: -21, width: 54, height: 50)).trimmedPath(from: 0.5, to: 1),
-                     with: .color(Color(red: 0.78, green: 0.92, blue: 1).opacity(0.8)), lineWidth: 1.4)
         case .rocket:
             var body = Path()
             body.move(to: CGPoint(x: 0, y: -38))
@@ -237,17 +220,6 @@ struct Hull: View {
             }
             for k in 0..<4 {
                 c.fill(Path(CGRect(x: -21 + CGFloat(k) * 13, y: -19, width: 5, height: 2)), with: .color(cyan))
-            }
-        case .brass:
-            let brass = metal(Color(red: 0.85, green: 0.66, blue: 0.29), Color(red: 0.48, green: 0.33, blue: 0.09),
-                              from: CGPoint(x: -35, y: 0), to: CGPoint(x: 35, y: 0))
-            c.fill(poly([(-29, 14), (-43, 34), (-19, 24)]), with: .color(Color(red: 0.48, green: 0.33, blue: 0.09)))
-            c.fill(poly([(29, 14), (43, 34), (19, 24)]), with: .color(Color(red: 0.48, green: 0.33, blue: 0.09)))
-            c.fill(Path(ellipseIn: CGRect(x: -35, y: -28, width: 70, height: 56)), with: brass)
-            for k in 0..<10 {
-                let a = Double(k) / 10 * 2 * .pi
-                c.fill(Path(ellipseIn: CGRect(x: cos(a) * 28 - 1.2, y: sin(a) * 22 - 1.2, width: 2.4, height: 2.4)),
-                       with: .color(Color(red: 0.96, green: 0.83, blue: 0.54)))
             }
         case .stealth:
             let hull = poly([(0, -32), (51, 24), (-51, 24)])
