@@ -62,11 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(!newValue, forKey: "menuBarRevealOff") }
     }
 
-    /// Something new hanging shows itself for a moment. Off, it hangs
-    /// quietly and waits for you to bring the line down.
+    /// Off unless turned on from the menu: a screenshot docks quietly and
+    /// the dock only opens when you ask.
     static var peeksAtNew: Bool {
-        get { !UserDefaults.standard.bool(forKey: "quietHang") }
-        set { UserDefaults.standard.set(!newValue, forKey: "quietHang") }
+        get { UserDefaults.standard.bool(forKey: "peekAtNew") }
+        set { UserDefaults.standard.set(newValue, forKey: "peekAtNew") }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
