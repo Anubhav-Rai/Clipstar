@@ -348,7 +348,7 @@ private struct TextFace: View {
     /// Each character an asterisk, up to a few lines' worth.
     private var masked: String {
         text.split(separator: "\n", omittingEmptySubsequences: true).prefix(3)
-            .map { String(repeating: "*", count: min(max($0.count, 3), 18)) }
+            .map { String(repeating: "*", count: min(max($0.count, 3), 14)) }
             .joined(separator: "\n")
     }
 }
