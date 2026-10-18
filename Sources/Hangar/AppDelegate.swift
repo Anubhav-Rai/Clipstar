@@ -92,6 +92,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Markup.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         Trim.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         line.onFall = { [weak self] item in self?.fall(item) }
+        line.onCopy = { [weak self] in
+            self?.pinned = false
+            self?.setRevealed(false)
+        }
         panel.onScroll = { [weak self] event in self?.turnRing(event) }
 
         line.$items

@@ -100,6 +100,9 @@ final class Line: ObservableObject {
         items[i].flying = false
     }
 
+    /// Called once something is copied: the dock gets out of the way.
+    var onCopy: (() -> Void)?
+
     /// Called just before a photo starts falling, so the fall can be drawn
     /// over the whole screen.
     var onFall: ((Pegged) -> Void)?
@@ -177,6 +180,7 @@ final class Line: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             if self?.copiedID == id { self?.copiedID = nil }
         }
+        onCopy?()
     }
 
     func open(_ id: UUID) {
