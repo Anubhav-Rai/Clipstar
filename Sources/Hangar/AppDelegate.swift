@@ -385,6 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setRevealed(_ on: Bool) {
         guard on != isRevealed else { return }
         isRevealed = on
+        // Closing is always at once: no warp out, no fading stars.
+        if !on { line.instant = true }
         line.revealed = on
         // Escape closes the dock while it is open, and only then.
         escapeKey = on ? HotKey(Shortcut(keyCode: kVK_Escape, modifiers: [], key: "")) { [weak self] in
@@ -479,13 +481,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: handler) {
             clickMonitors.append(global)
         }
-        // A click that goes past the dock to whatever is underneath, on empty
-        // space, closes it.
-        if let away = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
+        // A click on empty space in the open dock closes it, and goes no
+        // further. Clicks on a card are the card's.
+        if let away = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.isRevealed else { return }
+                guard let self, self.isRevealed, event.window === self.panel else { return event }
+                let p = event.locationInWindow
+                let flipped = CGPoint(x: p.x, y: self.panel.frame.height - p.y)
+                if self.line.hitRects.values.contains(where: { $0.insetBy(dx: -4, dy: -4).contains(flipped) }) { return event }
                 self.pinned = false
                 self.setRevealed(false)
+                return nil
             }
         }) {
             clickMonitors.append(away)
@@ -573,7 +579,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !GrabView.isDragging else { return }
         let local = panel.convertPoint(fromScreen: mouse)
         let flipped = CGPoint(x: local.x, y: panel.frame.height - local.y)
-        var catches = line.hitRects.values.contains { $0.insetBy(dx: -4, dy: -4).contains(flipped) }
+        // While the dock is open it covers the screen and takes every click,
+        // so a click on empty space closes it without reaching the app below.
+        var catches = isRevealed || line.hitRects.values.contains { $0.insetBy(dx: -4, dy: -4).contains(flipped) }
         // With more than fit, the whole rail takes the mouse, gaps included,
         // so a swipe anywhere along it turns the ring and never reaches the
         // app underneath (Safari would take it for Back). A swipe in
