@@ -358,6 +358,7 @@ function frame() {
     lockRect = { x, y, w, h: 30 };
   }
   if (!live.length && !closing) tag('Take a screenshot and it will dock here', W() / 2, H() / 2);
+  if (notice && now - notice.at < 5000) tag(notice.text, W() / 2, H() / 2 + 40);
 
   if (closing && leave >= 1) { closing = null; open = false; invoke('hide_dock'); return; }
   if (open) requestAnimationFrame(frame);
@@ -411,7 +412,7 @@ c.addEventListener('mousemove', e => { mouse = { x: e.clientX, y: e.clientY }; h
 c.addEventListener('click', async e => {
   hideMenu();
   if (lockRect && e.clientX >= lockRect.x && e.clientX <= lockRect.x + lockRect.w && e.clientY >= lockRect.y && e.clientY <= lockRect.y + lockRect.h) {
-    if (unlocked) { await invoke('lock_text'); unlocked = false; texts.clear(); } else { authenticating = true; unlocked = await invoke('unlock_text'); authenticating = false; }
+    if (unlocked) { await invoke('lock_text'); unlocked = false; texts.clear(); } else { await unlock(); }
     return;
   }
   const h = hitAt(e.clientX, e.clientY);
@@ -422,7 +423,17 @@ c.addEventListener('click', async e => {
 });
 c.addEventListener('dblclick', e => { const h = hitAt(e.clientX, e.clientY); if (h) invoke('open_item', { id: h.id }); });
 window.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-let authenticating = false;
+let authenticating = false, notice = null;
+/** Windows Hello, then every text card shows; says why if it cannot. */
+async function unlock() {
+  authenticating = true;
+  const answer = await invoke('unlock_text');
+  authenticating = false;
+  unlocked = answer === 'ok';
+  const why = { 'not set up': 'Set up Windows Hello (a PIN is enough) in Settings › Accounts › Sign-in options',
+                'cancelled': null, 'no device': 'Windows Hello is not available on this PC' }[answer];
+  if (!unlocked && why !== null) notice = { text: why || `Could not unlock: ${answer}`, at: performance.now() };
+}
 window.addEventListener('blur', () => { if (open && !closing && !authenticating) close(); });
 
 // Wheel and two fingers slide the rail; a pinch, or Ctrl and the wheel, zooms
@@ -455,7 +466,7 @@ c.addEventListener('contextmenu', e => {
                 ['Open', () => invoke('open_item', { id: h.id })],
                 ['Show in Explorer', () => invoke('reveal_item', { id: h.id })], null,
                 ['Undock', () => invoke('remove_item', { id: h.id })]];
-  if (it.kind === 'text' && !unlocked) rows.splice(1, 0, ['Show Text…', async () => { authenticating = true; unlocked = await invoke('unlock_text'); authenticating = false; }]);
+  if (it.kind === 'text' && !unlocked) rows.splice(1, 0, ['Show Text…', unlock]);
   menu.innerHTML = '';
   for (const r of rows) {
     if (!r) { menu.appendChild(document.createElement('hr')); continue; }

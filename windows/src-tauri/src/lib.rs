@@ -237,10 +237,16 @@ fn text_shape(id: u64, store: State<Store>) -> Result<(usize, Vec<usize>), Strin
 }
 
 /// Windows Hello: a face, a fingerprint or the PIN; then text shows for as
-/// long as Keep text shown says.
+/// long as Keep text shown says. Answers "ok", or why it did not unlock.
 #[tauri::command]
-async fn unlock_text(app: AppHandle) -> bool {
-    let ok = tauri::async_runtime::spawn_blocking(verify).await.unwrap_or(false);
+async fn unlock_text(app: AppHandle) -> String {
+    #[cfg(windows)]
+    let owner = app.get_webview_window("dock").and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize).unwrap_or(0);
+    #[cfg(not(windows))]
+    let owner = 0isize;
+    let answer = tauri::async_runtime::spawn_blocking(move || verify(owner)).await.unwrap_or_else(|_| "failed".into());
+    trace(&app, format!("unlock: {answer}"));
+    let ok = answer == "ok";
     if ok {
         let store = app.state::<Store>();
         let keep = store.settings.lock().unwrap().keep_text;
@@ -250,7 +256,7 @@ async fn unlock_text(app: AppHandle) -> bool {
         };
         *store.unlocked_until.lock().unwrap() = until;
     }
-    ok
+    answer
 }
 
 #[tauri::command]
@@ -258,20 +264,44 @@ fn lock_text(store: State<Store>) {
     *store.unlocked_until.lock().unwrap() = 0;
 }
 
+/// Asks Windows Hello, as the dock window, so its prompt shows in front.
+/// A desktop app has to name its window; the plain call only works in
+/// Store apps.
 #[cfg(windows)]
-fn verify() -> bool {
-    use windows::core::HSTRING;
-    use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
-    match UserConsentVerifier::RequestVerificationAsync(&HSTRING::from("Show your copied text")) {
-        Ok(op) => matches!(op.get(), Ok(UserConsentVerificationResult::Verified)),
-        Err(_) => false,
+fn verify(owner: isize) -> String {
+    use windows::core::{factory, HSTRING};
+    use windows::Foundation::IAsyncOperation;
+    use windows::Security::Credentials::UI::{
+        UserConsentVerificationResult as R, UserConsentVerifier, UserConsentVerifierAvailability as A,
+    };
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
+    match UserConsentVerifier::CheckAvailabilityAsync().and_then(|op| op.get()) {
+        Ok(A::Available) => {}
+        Ok(A::NotConfiguredForUser) => return "not set up".into(),
+        Ok(A::DisabledByPolicy) => return "turned off by policy".into(),
+        Ok(_) => return "no device".into(),
+        Err(e) => return format!("unavailable: {e}"),
+    }
+    let interop = match factory::<UserConsentVerifier, IUserConsentVerifierInterop>() {
+        Ok(i) => i,
+        Err(e) => return format!("no interop: {e}"),
+    };
+    let op: windows::core::Result<IAsyncOperation<R>> = unsafe {
+        interop.RequestVerificationForWindowAsync(HWND(owner as *mut _), &HSTRING::from("Show your copied text"))
+    };
+    match op.and_then(|op| op.get()) {
+        Ok(R::Verified) => "ok".into(),
+        Ok(R::Canceled) => "cancelled".into(),
+        Ok(other) => format!("not verified: {}", other.0),
+        Err(e) => format!("failed: {e}"),
     }
 }
 
 #[cfg(not(windows))]
-fn verify() -> bool {
+fn verify(_owner: isize) -> String {
     // Only for trying the app out on a Mac.
-    true
+    "ok".into()
 }
 
 /// A line for display.log, from the page, for checking sizes.
@@ -453,6 +483,39 @@ fn on_menu(app: &AppHandle, id: &str) {
     }
 }
 
+/// The pointer resting on the tray icon for a moment opens the dock, like
+/// pointing at the menu bar icon on a Mac; a left click opens it too.
+static HOVER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn on_tray(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
+    match event {
+        TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } => {
+            HOVER.fetch_add(1, Ordering::SeqCst);
+            toggle(app);
+        }
+        TrayIconEvent::Enter { .. } => {
+            let ticket = HOVER.fetch_add(1, Ordering::SeqCst) + 1;
+            let app = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(400));
+                if HOVER.load(Ordering::SeqCst) != ticket {
+                    return;
+                }
+                let shown = app.get_webview_window("dock").map(|w| w.is_visible().unwrap_or(false)).unwrap_or(false);
+                if !shown {
+                    let a = app.clone();
+                    let _ = app.run_on_main_thread(move || toggle(&a));
+                }
+            });
+        }
+        TrayIconEvent::Leave { .. } => {
+            HOVER.fetch_add(1, Ordering::SeqCst);
+        }
+        _ => {}
+    }
+}
+
 // MARK: Watching for screenshots
 
 /// Where Windows 11 saves screenshots (Print Screen, Win+Print Screen,
@@ -521,8 +584,10 @@ pub fn run() {
             TrayIconBuilder::with_id("main")
                 .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?)
                 .menu(&menu)
+                .show_menu_on_left_click(false)
                 .tooltip("Clipstar")
                 .on_menu_event(|app, e| on_menu(app, e.id().as_ref()))
+                .on_tray_icon_event(|tray, event| on_tray(tray.app_handle(), event))
                 .build(app)?;
             refresh_tray(app.handle());
             // Taken by another app: the tray menu still opens the dock.
