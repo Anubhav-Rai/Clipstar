@@ -92,9 +92,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Markup.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         Trim.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         line.onFall = { [weak self] item in self?.fall(item) }
+        // A copy shows "Copied" for a moment, then the dock bows out.
         line.onCopy = { [weak self] in
             self?.pinned = false
-            self?.setRevealed(false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                self?.setRevealed(false, gracefully: true)
+            }
         }
         panel.onScroll = { [weak self] event in self?.turnRing(event) }
 
@@ -388,12 +391,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setRevealed(true)
     }
 
-    private func setRevealed(_ on: Bool) {
+    private func setRevealed(_ on: Bool, gracefully: Bool = false) {
         guard on != isRevealed else { return }
         isRevealed = on
-        // Closing is always at once: no warp out, no fading stars.
+        // Closing is at once, except after a copy: then the cards warp away
+        // and the stars fade.
         if !on {
-            line.instant = true
+            line.instant = !gracefully
             line.zoom = 1
             line.zoomID = nil
         }
