@@ -15,8 +15,13 @@ enum Layout {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "cardSize") }
     }
 
-    static var photoMaxHeight: CGFloat { (96 * size.scale).rounded() }
-    static var cardWidth: CGFloat { (140 * size.scale).rounded() }
+    /// The screen the dock is on. Sizes are for a 1440 by 900 screen and
+    /// follow the real one, so a card takes the same share of every display.
+    static var screen = CGSize(width: 1440, height: 900)
+    static var screenScale: CGFloat { max(0.5, min(screen.width / 1440, screen.height / 900)) }
+
+    static var photoMaxHeight: CGFloat { (96 * size.scale * screenScale).rounded() }
+    static var cardWidth: CGFloat { (140 * size.scale * screenScale).rounded() }
 }
 
 /// The whole screen while the dock is open: the Milky Way behind, a trail

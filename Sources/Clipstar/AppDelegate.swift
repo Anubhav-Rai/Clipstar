@@ -864,6 +864,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateCapacity() {
+        Layout.screen = panel.frame.size
+        line.objectWillChange.send()
         let ports = max(4, Dock.ring(in: panel.frame.size).count)
         guard ports != line.ports else { return }
         line.ports = ports
