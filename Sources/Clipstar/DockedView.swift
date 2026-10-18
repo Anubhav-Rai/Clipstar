@@ -38,10 +38,11 @@ struct DockedView: View {
 
     private var skin: Skin { Skin.current }
 
-    /// The screenshot's frame inside the box the card is given.
+    /// The ship's window inside the box the card is given: the same for every
+    /// ship of a skin, so they all match whatever their screenshots' shape.
     private var photoFrame: CGRect {
-        let box = Dock.box, c = DockedView.cardSize(for: item.thumb.size)
-        return CGRect(x: (box.width - c.width) / 2, y: (box.height - c.height) / 2, width: c.width, height: c.height)
+        let box = Dock.box, w = skin.window
+        return CGRect(x: (box.width - w.width) / 2, y: (box.height - w.height) / 2, width: w.width, height: w.height)
     }
 
     var body: some View {
@@ -166,10 +167,9 @@ struct DockedView: View {
 
     /// The photo fits inside the card area keeping its proportions.
     static func photoSize(for size: CGSize) -> CGSize {
-        // A ship takes room round the screenshot, so the screenshot is smaller.
-        let skin = Skin.current, box = Dock.box
-        let maxW = skin == .card ? Layout.cardWidth - Frame.inset * 2 : box.width * skin.screenShare.width - Frame.inset * 2
-        let maxH = skin == .card ? Layout.photoMaxHeight : box.height * skin.screenShare.height - Frame.inset * 2
+        // Fits the window of the ship, or the card.
+        let window = Skin.current.window
+        let maxW = window.width - Frame.inset * 2, maxH = window.height - Frame.inset * 2
         guard size.width > 0, size.height > 0 else { return CGSize(width: maxW, height: maxH) }
         let scale = min(maxW / size.width, maxH / size.height)
         return CGSize(width: size.width * scale, height: size.height * scale)

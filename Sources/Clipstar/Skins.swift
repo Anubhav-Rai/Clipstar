@@ -55,6 +55,24 @@ enum Skin: String, CaseIterable {
         CGSize(width: 50 / (50 + 2 * reach.width), height: 32 / (32 + 2 * reach.height))
     }
 
+    /// The window the screenshot shows in: the same on every ship of a
+    /// skin, whatever the screenshot's shape, about 85% of a card's
+    /// picture. Ships with big wings grow, up to a limit, rather than
+    /// shrinking the screenshot.
+    var window: CGSize {
+        let card = CGSize(width: Layout.cardWidth, height: Layout.photoMaxHeight + Frame.inset * 2)
+        guard self != .card else { return card }
+        let most = CGSize(width: card.width * 1.55, height: card.height * 1.6)
+        return CGSize(width: min(card.width * 0.85, most.width * screenShare.width),
+                      height: min(card.height * 0.85, most.height * screenShare.height))
+    }
+
+    /// The box a ship takes on the rail: its window and the hull round it.
+    var box: CGSize {
+        guard self != .card else { return window }
+        return CGSize(width: (window.width / screenShare.width).rounded(), height: (window.height / screenShare.height).rounded())
+    }
+
     /// Where the engines are, in design units, for the thrusters.
     var engines: [CGPoint] {
         switch self {
@@ -83,8 +101,8 @@ enum Skin: String, CaseIterable {
     }
 }
 
-/// The hull behind the screenshot. `photo` is the screenshot's frame inside
-/// this view.
+/// The hull behind the screenshot. `photo` is the ship's window inside this
+/// view: the same for every ship of a skin.
 struct Hull: View {
     let skin: Skin
     let photo: CGRect
@@ -96,6 +114,9 @@ struct Hull: View {
             c.translateBy(x: photo.midX, y: photo.midY)
             c.scaleBy(x: photo.width / 50, y: photo.height / 32)
             Hull.draw(skin, in: &c)
+            // The screen in the window, behind a screenshot that does not fill it.
+            ctx.fill(Path(roundedRect: photo, cornerRadius: skin.corner + Frame.inset),
+                     with: .color(Color(red: 0.03, green: 0.04, blue: 0.08)))
         }
         .allowsHitTesting(false)
     }
