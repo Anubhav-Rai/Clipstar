@@ -53,6 +53,9 @@ final class Line: ObservableObject {
     /// How far the ring is turned back from the newest, in cards. 0 shows
     /// the newest ones.
     @Published var scroll: CGFloat = 0
+    /// The card being zoomed with an up and down swipe, and by how much.
+    @Published var zoomID: UUID?
+    @Published var zoom: CGFloat = 1
 
 
     var soundOn: Bool {

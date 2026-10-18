@@ -8,6 +8,13 @@ struct DockedView: View {
     let slot: Slot
     /// 1 for the newest.
     let number: Int
+    /// How much it is zoomed by an up and down swipe, and the point that
+    /// stays put while it grows.
+    let zoom: CGFloat
+    let anchor: UnitPoint
+
+    /// A sharp version for when it is zoomed; the docked one is small.
+    @State private var full: NSImage?
 
     /// 1 is far past the edge of the screen, 0 is docked.
     @State private var warp: CGFloat = 1
@@ -36,6 +43,7 @@ struct DockedView: View {
                 .scaleEffect(x: slot.side.isHorizontal ? 1 : 1 + 2.5 * warp,
                              y: slot.side.isHorizontal ? 1 + 2.5 * warp : 1)
             clamps
+                .opacity(zoom > 1.05 ? 0 : 1)
             Circle()
                 .stroke(Dock.cyan, lineWidth: 3 * (1 - ring))
                 .frame(width: 40, height: 40)
@@ -43,6 +51,7 @@ struct DockedView: View {
                 .opacity(Double(1 - ring))
                 .allowsHitTesting(false)
         }
+        .scaleEffect(zoom, anchor: anchor)
         .offset(x: a.dx * Self.distance * warp, y: a.dy * Self.distance * warp)
         .opacity(item.falling || item.flying ? 0 : 1)
         .transaction { t in if item.falling { t.animation = nil } }
@@ -61,6 +70,15 @@ struct DockedView: View {
         }
         .onChange(of: item.flying) { was, now in if was && !now { dock() } }
         .onChange(of: copied) { _, isCopied in if isCopied { flash() } }
+        .onChange(of: zoom > 1.3) { _, big in if big && full == nil { loadFull() } }
+    }
+
+    private func loadFull() {
+        let url = item.url
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image = makeThumbnail(url, maxPixels: 2600)
+            DispatchQueue.main.async { full = image }
+        }
     }
 
     // MARK: Motion
@@ -166,7 +184,7 @@ struct DockedView: View {
     private var photoSize: CGSize { Self.photoSize(for: item.thumb.size) }
 
     private var card: some View {
-        Image(nsImage: item.thumb)
+        Image(nsImage: full ?? item.thumb)
             .resizable()
             .interpolation(.high)
             .frame(width: photoSize.width, height: photoSize.height)

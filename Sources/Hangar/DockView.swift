@@ -58,8 +58,14 @@ struct DockView: View {
                 ForEach(line.items) { item in
                     if let p = line.ringPosition(of: item.id), let number = line.number(of: item.id),
                        let place = Dock.place(at: p, ring: ring, head: head, tail: tail) {
-                        DockedView(item: item, line: line, slot: place.slot, number: number)
+                        let zoomed = line.zoomID == item.id
+                        DockedView(item: item, line: line, slot: place.slot, number: number,
+                                   zoom: zoomed ? line.zoom : 1,
+                                   // Grows towards the middle of the screen, so it never runs off an edge.
+                                   anchor: UnitPoint(x: place.center.x / max(size.width, 1),
+                                                     y: place.center.y / max(size.height, 1)))
                             .frame(width: Dock.box.width, height: Dock.box.height)
+                            .zIndex(zoomed ? 10 : 0)
                             .scaleEffect(place.scale)
                             .opacity(place.opacity)
                             .position(place.center)

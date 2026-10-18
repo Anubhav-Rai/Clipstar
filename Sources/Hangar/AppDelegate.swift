@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var escapeKey: HotKey?
     /// When the ring last turned, so a swipe keeps the mouse to the end.
     private var lastTurn = Date.distantPast
+    /// Whether the swipe in progress zooms rather than slides.
+    private var zooming = false
 
     /// Whether the panel is ordered in. It can be in and still tucked away
     /// above the top edge, like an auto-hiding Dock.
@@ -386,7 +388,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard on != isRevealed else { return }
         isRevealed = on
         // Closing is always at once: no warp out, no fading stars.
-        if !on { line.instant = true }
+        if !on {
+            line.instant = true
+            line.zoom = 1
+            line.zoomID = nil
+        }
         line.revealed = on
         // Escape closes the dock while it is open, and only then.
         escapeKey = on ? HotKey(Shortcut(keyCode: kVK_Escape, modifiers: [], key: "")) { [weak self] in
@@ -538,6 +544,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         updateMousePassThrough(mouse)
+        if line.zoomID != nil, now.timeIntervalSince(lastTurn) > 0.3,
+           let frame = zoomedFrame(), !frame.insetBy(dx: -12, dy: -12).contains(flippedPointer()) {
+            unzoom()
+        }
 
         // The dock's zone is the band along every edge, the menu bar
         // included, so moving up to it never closes the dock. Resting in the
@@ -606,22 +616,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Turning the ring
 
-    /// Two fingers turn the ring, either way they move; a mouse wheel turns
-    /// it a port per notch. When the fingers lift, it settles into the ports.
+    /// Sideways, two fingers slide the rail; up and down, they zoom the card
+    /// under the pointer, bigger as the fingers go up. A gesture keeps to
+    /// whichever way it started. A mouse wheel slides with Shift held and
+    /// zooms without.
     private func turnRing(_ event: NSEvent) {
         lastTurn = Date()
-        let delta = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
-            ? event.scrollingDeltaX : event.scrollingDeltaY
-        if event.hasPreciseScrollingDeltas {
-            line.scroll(by: delta / 60)
+        let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
+        if event.phase == .began || (event.phase.isEmpty && event.momentumPhase.isEmpty) {
+            zooming = abs(dy) > abs(dx)
+            if zooming { zoomTarget() }
+        }
+        if !event.hasPreciseScrollingDeltas {
+            if event.modifierFlags.contains(.shift) || abs(dx) > abs(dy) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    line.scroll(by: (abs(dx) > abs(dy) ? dx : dy) > 0 ? 1 : -1)
+                }
+            } else if line.zoomID != nil {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { zoom(by: dy > 0 ? 0.35 : -0.35) }
+            }
+            return
+        }
+        if zooming {
+            guard line.zoomID != nil else { return }
+            // With natural scrolling the deltas follow the content, the
+            // other way from the fingers.
+            let up = event.isDirectionInvertedFromDevice ? -dy : dy
+            zoom(by: up / 120)
+            if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
+                if line.zoom < 1.15 { unzoom() }
+            }
+        } else {
+            unzoom()
+            line.scroll(by: (abs(dx) >= abs(dy) ? dx : dy) / 60)
             if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { line.settle() }
             }
-        } else {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                line.scroll(by: delta > 0 ? 1 : -1)
-            }
         }
+    }
+
+    /// The card under the pointer becomes the one to zoom.
+    private func zoomTarget() {
+        let flipped = flippedPointer()
+        guard let id = line.hitRects.first(where: { $0.value.contains(flipped) })?.key else { return }
+        if line.zoomID != id {
+            line.zoom = 1
+            line.zoomID = id
+        }
+    }
+
+    private func zoom(by amount: CGFloat) {
+        let size = panel.frame.size, box = Dock.box
+        let most = max(1, min(size.width * 0.85 / box.width, size.height * 0.85 / box.height))
+        line.zoom = min(most, max(1, line.zoom + amount))
+    }
+
+    private func unzoom() {
+        guard line.zoomID != nil else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { line.zoom = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            if self?.line.zoom == 1 { self?.line.zoomID = nil }
+        }
+    }
+
+    private func flippedPointer() -> CGPoint {
+        let local = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
+        return CGPoint(x: local.x, y: panel.frame.height - local.y)
+    }
+
+    /// The zoomed card's frame as drawn, grown from its fixed point, so
+    /// leaving it can shrink it back.
+    private func zoomedFrame() -> CGRect? {
+        guard let id = line.zoomID, let r = line.hitRects[id], let p = line.ringPosition(of: id) else { return nil }
+        let size = panel.frame.size
+        guard let place = Dock.place(at: p, ring: Dock.ring(in: size), head: Dock.head(in: size), tail: Dock.gate(in: size)) else { return nil }
+        let box = Dock.box, z = line.zoom
+        let fixed = CGPoint(x: place.center.x - box.width / 2 + place.center.x / size.width * box.width,
+                            y: place.center.y - box.height / 2 + place.center.y / size.height * box.height)
+        return CGRect(x: fixed.x + (r.minX - fixed.x) * z, y: fixed.y + (r.minY - fixed.y) * z,
+                      width: r.width * z, height: r.height * z)
     }
 
     // MARK: Shortcut
