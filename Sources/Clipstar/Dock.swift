@@ -128,20 +128,21 @@ enum Dock {
         let leftX = rail + gap + b.width / 2
         let bottomY = size.height - rail - gap - b.height / 2
         let stepX = b.width + 24, stepY = b.height + 18
-        // The columns the top and bottom rows share, left to right.
-        var xs: [CGFloat] = []
-        var x = leftX + stepX / 2
-        while x + b.width / 2 <= size.width - tailRoom {
-            xs.append(x)
-            x += stepX
-        }
+        // The columns the top and bottom rows share, left to right, spread
+        // evenly from just right of the left column to the tail, so every
+        // screen is filled the same way whatever its width.
+        let from = leftX + b.width / 2 + 12 + b.width / 2, to = size.width - tailRoom - b.width / 2
+        let columns = max(1, Int((to - from) / stepX) + 1)
+        let xs: [CGFloat] = columns == 1 ? [from] : (0..<columns).map { from + (to - from) * CGFloat($0) / CGFloat(columns - 1) }
         for x in xs.reversed() {
             add(.top, CGPoint(x: x, y: topY), CGPoint(x: x, y: rail))
         }
-        var y = topY + stepY
-        while y + b.height / 2 <= bottomY - b.height / 2 - 12 {
+        // Down the left, spread evenly between the top and bottom rows.
+        let top = topY + b.height / 2 + 12 + b.height / 2, bottom = bottomY - b.height / 2 - 12 - b.height / 2
+        let rows = bottom >= top ? Int((bottom - top) / stepY) + 1 : 0
+        for i in 0..<rows {
+            let y = rows == 1 ? (top + bottom) / 2 : top + (bottom - top) * CGFloat(i) / CGFloat(rows - 1)
             add(.left, CGPoint(x: leftX, y: y), CGPoint(x: rail, y: y))
-            y += stepY
         }
         for x in xs {
             add(.bottom, CGPoint(x: x, y: bottomY), CGPoint(x: x, y: size.height - rail))

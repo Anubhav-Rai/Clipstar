@@ -97,6 +97,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Markup.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         Trim.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         line.onFall = { [weak self] item in self?.fall(item) }
+        // For checking the layout on each display without moving the pointer:
+        // a "com.anrai.Clipstar.open" notification with "screen" set to the
+        // display's index opens or closes the dock there.
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.anrai.Clipstar.open"), object: nil, queue: .main
+        ) { [weak self] note in
+            let index = Int(note.object as? String ?? "") ?? 0
+            MainActor.assumeIsolated {
+                let screens = NSScreen.screens
+                self?.toggle(on: screens.indices.contains(index) ? screens[index] : nil)
+            }
+        }
         // A copy shows "Copied" for a moment, then the dock bows out.
         line.onCopy = { [weak self] in
             self?.pinned = false
@@ -461,7 +473,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggle() {
+    @objc private func toggle() { toggle(on: nil) }
+
+    /// Opens the dock on that screen, or the one under the pointer.
+    private func toggle(on screen: NSScreen?) {
         if isRevealed {
             setRevealed(false)
         } else {
@@ -469,7 +484,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             wanted = true
             openedOnPurpose = true
             line.instant = false
-            panel.placeOnScreen()
+            panel.placeOnScreen(screen)
             updateCapacity()
             refresh()
             reveal(pinned: true)
