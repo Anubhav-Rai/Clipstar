@@ -278,8 +278,15 @@ let shown = 0;
 function frame() {
   const now = performance.now();
   const dpr = window.devicePixelRatio || 1;
-  if (c.width !== W() * dpr || c.height !== H() * dpr) { c.width = W() * dpr; c.height = H() * dpr; sky = null; }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // The canvas holds device pixels but is laid out in CSS pixels, so it is
+  // drawn once at the display's scale (125% on many Windows PCs), not twice.
+  const pw = Math.round(W() * dpr), ph = Math.round(H() * dpr);
+  if (c.width !== pw || c.height !== ph) {
+    c.width = pw; c.height = ph;
+    c.style.width = W() + 'px'; c.style.height = H() + 'px';
+    sky = null;
+  }
+  ctx.setTransform(pw / W(), 0, 0, ph / H(), 0, 0);
   ctx.clearRect(0, 0, W(), H());
   const r = ring();
   // Closing: everything slips out past its edge in about a quarter second.
@@ -378,7 +385,7 @@ async function refresh() {
 
 listen('open', async () => {
   await refresh();
-  invoke('note', { text: `page ${innerWidth}x${innerHeight} dpr ${devicePixelRatio} screen ${screen.width}x${screen.height}` });
+  setTimeout(() => invoke('note', { text: `page ${innerWidth}x${innerHeight} dpr ${devicePixelRatio} canvas ${c.width}x${c.height} css ${c.getBoundingClientRect().width}x${c.getBoundingClientRect().height}` }), 300);
   scroll = scrollTarget = 0; zoom = { id: null, k: 1, at: 0 }; closing = null; copied = null;
   const t0 = performance.now() + 60, r = ring();
   flights.clear();
