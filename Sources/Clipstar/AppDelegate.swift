@@ -412,7 +412,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Closing is at once, except after a copy: then the cards warp away
         // and the stars fade.
         if !on {
-            line.textUnlocked = false
             line.instant = !gracefully
             line.zoom = 1
             line.zoomID = nil

@@ -41,8 +41,19 @@ final class Line: ObservableObject {
     /// Whether the dock is open.
     @Published var revealed = false
     /// Copied text shows as asterisks until Touch ID or the password
-    /// unlocks it; it locks again when the dock closes.
-    @Published var textUnlocked = false
+    /// unlocks it, for an hour, or until Hide text.
+    @Published var textUnlocked = false {
+        didSet {
+            relock?.cancel()
+            relock = nil
+            guard textUnlocked else { return }
+            let work = DispatchWorkItem { [weak self] in self?.textUnlocked = false }
+            relock = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.unlockFor, execute: work)
+        }
+    }
+    private var relock: DispatchWorkItem?
+    private static let unlockFor: TimeInterval = 60 * 60
 
     /// Opened for a moment by a new screenshot: everything appears at once,
     /// with no warp.
