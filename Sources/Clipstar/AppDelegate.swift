@@ -412,6 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Closing is at once, except after a copy: then the cards warp away
         // and the stars fade.
         if !on {
+            if Line.keepTextShown == -1 { line.textUnlocked = false }
             line.instant = !gracefully
             line.zoom = 1
             line.zoomID = nil
@@ -958,6 +959,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         sizeItem.submenu = sizes
         menu.addItem(sizeItem)
+
+        let keepItem = NSMenuItem(title: L("Keep text shown"), action: nil, keyEquivalent: "")
+        let keeps = NSMenu()
+        for (minutes, title) in [(-1, L("Until the dock closes")), (15, L("15 minutes")), (60, L("1 hour")),
+                                 (240, L("4 hours")), (0, L("Until Clipstar quits"))] {
+            let item = ClosureMenuItem(title) { [weak self] in
+                Line.keepTextShown = minutes
+                // Takes effect now: a shown text keeps to the new time.
+                if self?.line.textUnlocked == true { self?.line.textUnlocked = true }
+            }
+            item.state = Line.keepTextShown == minutes ? .on : .off
+            keeps.addItem(item)
+        }
+        keepItem.submenu = keeps
+        menu.addItem(keepItem)
 
         let skyItem = NSMenuItem(title: L("Background"), action: nil, keyEquivalent: "")
         let skies = NSMenu()

@@ -19,7 +19,7 @@ A space-themed fork of [Tendedero](https://github.com/alejandrobujan/tendedero) 
 - **Zoom** a card up to 2× with an up and down swipe, a pinch, or ⌘ and the wheel. It grows only while you do it; the cards beside it move aside.
 - **Click** a card to copy it. It says Copied, and the dock gets out of the way, back to the app you were in, ready to paste. Drag a card into any app or folder, double click to open, hold for Markup, right click for more.
 - **Pin on Top.** Right click a card and pin it: it floats in its own little window over every app, to drag, pinch to zoom and close when you're done.
-- **Copied text stays private.** Text shows as asterisks. One **Show text** button asks for Touch ID or your password, and it stays unlocked for an hour, or until you hide it again. Anything a password manager marks as private is never kept.
+- **Copied text stays private.** Text shows as asterisks. One **Show text** button asks for Touch ID or your password, and it stays unlocked for as long as you choose in Keep text shown (an hour to start with), or until you hide it again. Anything a password manager marks as private is never kept.
 - **Close** with a click on empty space, Escape or ⌃⌥H.
 
 From the menu: how solid the space background is, card size, which copies to keep, the shortcut, and **Handle screenshots**, which saves screenshots straight to Clipstar without the floating thumbnail (your own settings come back when it quits).

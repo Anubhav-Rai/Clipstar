@@ -41,19 +41,26 @@ final class Line: ObservableObject {
     /// Whether the dock is open.
     @Published var revealed = false
     /// Copied text shows as asterisks until Touch ID or the password
-    /// unlocks it, for an hour, or until Hide text.
+    /// unlocks it, for as long as Keep text shown says, or until Hide text.
     @Published var textUnlocked = false {
         didSet {
             relock?.cancel()
             relock = nil
-            guard textUnlocked else { return }
+            guard textUnlocked, Self.keepTextShown > 0 else { return }
             let work = DispatchWorkItem { [weak self] in self?.textUnlocked = false }
             relock = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.unlockFor, execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(Self.keepTextShown) * 60, execute: work)
         }
     }
     private var relock: DispatchWorkItem?
-    private static let unlockFor: TimeInterval = 60 * 60
+
+    /// Keep text shown, from the menu, in minutes: 60 out of the box. -1
+    /// locks it again when the dock closes, 0 only when Clipstar quits.
+    nonisolated static let keepChoices = [-1, 15, 60, 240, 0]
+    nonisolated static var keepTextShown: Int {
+        get { UserDefaults.standard.object(forKey: "keepTextShown") as? Int ?? 60 }
+        set { UserDefaults.standard.set(newValue, forKey: "keepTextShown") }
+    }
 
     /// Opened for a moment by a new screenshot: everything appears at once,
     /// with no warp.
