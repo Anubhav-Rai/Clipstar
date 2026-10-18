@@ -125,10 +125,10 @@ struct DockedView: View {
         withAnimation(.easeOut(duration: 0.6)) { ring = 1 }
     }
 
-    /// It pulls back a touch, then jumps away past its edge.
+    /// Slips away past its edge, quickly, nearly together with the rest.
     private func warpOut() {
-        withAnimation(.easeOut(duration: 0.12)) { locked = false }
-        withAnimation(.timingCurve(0.7, 0, 0.95, 0.5, duration: 0.42).delay(stagger * 0.5)) { warp = 1 }
+        withAnimation(.easeOut(duration: 0.08)) { locked = false }
+        withAnimation(.easeIn(duration: 0.22).delay(min(stagger * 0.1, 0.05))) { warp = 1 }
     }
 
     // MARK: Parts

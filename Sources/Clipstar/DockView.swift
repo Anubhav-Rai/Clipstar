@@ -229,7 +229,7 @@ private struct SpaceBackground: View {
         if instant { set(level) } else { withAnimation(.easeOut(duration: 0.35)) { shown = level } }
     }
     private func hide() {
-        if instant { set(0) } else { withAnimation(.easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
+        withAnimation(.easeIn(duration: 0.22)) { shown = 0 }
     }
     private func set(_ value: Double) {
         var t = Transaction()
@@ -509,7 +509,7 @@ private struct Hyperspace: View {
             }
         }
         .allowsHitTesting(false)
-        .onChange(of: on) { _, _ in burst() }
+        .onChange(of: on) { _, now in if now { burst() } }
     }
 
     private func burst() {

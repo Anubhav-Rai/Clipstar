@@ -101,7 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         line.onCopy = { [weak self] in
             self?.pinned = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                self?.setRevealed(false, gracefully: true)
+                self?.setRevealed(false)
             }
         }
         panel.onScroll = { [weak self] event in self?.turnRing(event) }
@@ -406,14 +406,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setRevealed(true)
     }
 
-    private func setRevealed(_ on: Bool, gracefully: Bool = false) {
+    private func setRevealed(_ on: Bool) {
         guard on != isRevealed else { return }
         isRevealed = on
-        // Closing is at once, except after a copy: then the cards warp away
-        // and the stars fade.
+        // Closing is quick but smooth, however it happens: the cards slip
+        // out past their edges and the stars fade, in about a quarter second.
         if !on {
             if Line.keepTextShown == -1 { line.textUnlocked = false }
-            line.instant = !gracefully
+            line.instant = false
             line.zoom = 1
             line.zoomID = nil
         }
@@ -436,7 +436,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } else {
             // Long enough for the whole fleet to warp away; a peek goes at once.
-            DispatchQueue.main.asyncAfter(deadline: .now() + (line.instant ? 0.05 : 0.85)) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self, !self.isRevealed else { return }
                 self.panel.orderOut(nil)
             }
