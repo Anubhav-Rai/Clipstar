@@ -25,6 +25,10 @@ A space-themed fork of [Tendedero](https://github.com/alejandrobujan/tendedero) 
 
 From the menu: how solid the space background is, card size, which copies to keep, the shortcut, and **Handle screenshots**, which saves screenshots straight to Clipstar without the floating thumbnail (your own settings come back when it quits).
 
+## Windows
+
+There is a Windows version too: download `Clipstar_x.y.z_x64-setup.exe` from the [releases](https://github.com/Anubhav-Rai/Clipstar/releases). It opens with Ctrl+Alt+H or from its tray icon, and its code is in [`windows/`](windows).
+
 ## Build
 
 Needs macOS 14 or later and Swift (the Command Line Tools are enough, no Xcode).
