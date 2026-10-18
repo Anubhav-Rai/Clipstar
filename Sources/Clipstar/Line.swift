@@ -369,6 +369,14 @@ final class Line: ObservableObject {
         QuickLook.shared.show(live.map(\.url), at: index)
     }
 
+    /// Keeps a screenshot floating over everything, to look at while you
+    /// work. The dock gets out of the way so the pin shows.
+    func pin(_ id: UUID) {
+        guard let item = items.first(where: { $0.id == id }), !item.isRecording, !item.isText else { return }
+        Pin.show(item.url)
+        onCopy?()
+    }
+
     /// After a change of size, every photo is redrawn sharp at the new one.
     func reloadThumbnails() {
         for i in items.indices where !items[i].falling {
