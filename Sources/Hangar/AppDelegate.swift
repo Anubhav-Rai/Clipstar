@@ -639,8 +639,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func turnRing(_ event: NSEvent) {
         lastTurn = Date()
         let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
-        // A wheel sends no gesture phases, smooth scrolling mice included.
-        if event.phase.isEmpty && event.momentumPhase.isEmpty {
+        // A wheel sends no gesture phases. Apps that smooth a mouse's wheel,
+        // like Mac Mouse Fix, post their own events dressed up as trackpad
+        // gestures, phases and all; those come from their process, where a
+        // real trackpad's come from the hardware with none.
+        let posted = (event.cgEvent?.getIntegerValueField(.eventSourceUnixProcessID) ?? 0) != 0
+        if posted || (event.phase.isEmpty && event.momentumPhase.isEmpty) {
             wheel(event, dx: dx, dy: dy)
             return
         }
