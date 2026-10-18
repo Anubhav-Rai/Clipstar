@@ -276,11 +276,8 @@ fn verify() -> bool {
 
 /// A line for display.log, from the page, for checking sizes.
 #[tauri::command]
-fn note(text: String, store: State<Store>) {
-    use std::io::Write;
-    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(store.dir.join("display.log")) {
-        let _ = writeln!(f, "{text}");
-    }
+fn note(text: String, app: AppHandle) {
+    trace(&app, text);
 }
 
 /// The page has played the way out; the window goes.
@@ -317,35 +314,51 @@ fn set_setting(key: String, value: serde_json::Value, app: AppHandle, store: Sta
 
 // MARK: Opening the dock
 
-/// Opens the dock on the display under the pointer, or closes it.
+/// A line in display.log, in Clipstar's data folder, for sorting out how a
+/// display is measured.
+fn trace(app: &AppHandle, text: String) {
+    use std::io::Write;
+    let path = app.state::<Store>().dir.join("display.log");
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{text}");
+    }
+}
+
+/// Opens the dock on the display under the pointer, or closes it. The
+/// window covers that display's work area, the taskbar left clear.
 pub fn toggle(app: &AppHandle) {
     let Some(w) = app.get_webview_window("dock") else { return };
     if w.is_visible().unwrap_or(false) {
         let _ = app.emit("close", ());
         return;
     }
-    let cursor = app.cursor_position().ok();
+    let cursor = app.cursor_position();
     let monitors = w.available_monitors().unwrap_or_default();
-    let monitor = cursor
-        .and_then(|c| {
-            monitors.iter().find(|m| {
-                let p = m.position();
-                let s = m.size();
-                c.x >= p.x as f64 && c.x < (p.x + s.width as i32) as f64 && c.y >= p.y as f64 && c.y < (p.y + s.height as i32) as f64
-            })
+    trace(app, format!("open: cursor {:?}, {} monitors", cursor, monitors.len()));
+    let under = cursor.as_ref().ok().and_then(|c| {
+        monitors.iter().find(|m| {
+            let p = m.position();
+            let s = m.size();
+            c.x >= p.x as f64 && c.x < p.x as f64 + s.width as f64 && c.y >= p.y as f64 && c.y < p.y as f64 + s.height as f64
         })
+    });
+    let monitor = under
         .cloned()
-        .or_else(|| w.primary_monitor().ok().flatten());
-    if let Some(m) = monitor {
-        let area = m.work_area();
-        let _ = w.set_position(PhysicalPosition::new(area.position.x, area.position.y));
-        let _ = w.set_size(PhysicalSize::new(area.size.width, area.size.height));
-        let note = format!(
-            "monitor {:?} {:?} scale {} work {:?} {:?} -> window {:?} {:?} scale {:?}\n",
-            m.position(), m.size(), m.scale_factor(), area.position, area.size,
-            w.outer_position().ok(), w.inner_size().ok(), w.scale_factor().ok()
-        );
-        let _ = fs::write(app.state::<Store>().dir.join("display.log"), note);
+        .or_else(|| w.current_monitor().ok().flatten())
+        .or_else(|| w.primary_monitor().ok().flatten())
+        .or_else(|| monitors.first().cloned());
+    match monitor {
+        Some(m) => {
+            let area = m.work_area();
+            let r1 = w.set_position(PhysicalPosition::new(area.position.x, area.position.y));
+            let r2 = w.set_size(PhysicalSize::new(area.size.width, area.size.height));
+            trace(app, format!(
+                "monitor {:?} {:?} scale {} work {:?} {:?} -> {:?} {:?}; window {:?} {:?} scale {:?}",
+                m.position(), m.size(), m.scale_factor(), area.position, area.size, r1.err(), r2.err(),
+                w.outer_position().ok(), w.inner_size().ok(), w.scale_factor().ok()
+            ));
+        }
+        None => trace(app, "no monitor found".into()),
     }
     let _ = w.show();
     let _ = w.set_focus();
