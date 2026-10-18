@@ -24,4 +24,4 @@ trash = "5"
 open = "5"
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.58", features = ["Security_Credentials_UI", "Foundation", "Win32_Foundation", "Win32_System_WinRT"] }
+windows = { version = "0.58", features = ["Security_Credentials_UI", "Foundation", "Win32_Foundation", "Win32_System_WinRT", "Win32_Security", "Win32_Security_Credentials", "Win32_System_Com"] }

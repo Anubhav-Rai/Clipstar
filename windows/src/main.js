@@ -430,8 +430,7 @@ async function unlock() {
   const answer = await invoke('unlock_text');
   authenticating = false;
   unlocked = answer === 'ok';
-  const why = { 'not set up': 'Set up Windows Hello (a PIN is enough) in Settings › Accounts › Sign-in options',
-                'cancelled': null, 'no device': 'Windows Hello is not available on this PC' }[answer];
+  const why = { 'cancelled': null, 'wrong password': 'That password did not match, so the text stays hidden' }[answer];
   if (!unlocked && why !== null) notice = { text: why || `Could not unlock: ${answer}`, at: performance.now() };
 }
 window.addEventListener('blur', () => { if (open && !closing && !authenticating) close(); });

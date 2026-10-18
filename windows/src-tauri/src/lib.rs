@@ -276,12 +276,10 @@ fn verify(owner: isize) -> String {
     };
     use windows::Win32::Foundation::HWND;
     use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
-    match UserConsentVerifier::CheckAvailabilityAsync().and_then(|op| op.get()) {
-        Ok(A::Available) => {}
-        Ok(A::NotConfiguredForUser) => return "not set up".into(),
-        Ok(A::DisabledByPolicy) => return "turned off by policy".into(),
-        Ok(_) => return "no device".into(),
-        Err(e) => return format!("unavailable: {e}"),
+    // Without Windows Hello (no PIN, face or fingerprint set up), the
+    // Windows password does instead.
+    if !matches!(UserConsentVerifier::CheckAvailabilityAsync().and_then(|op| op.get()), Ok(A::Available)) {
+        return windows_password(owner);
     }
     let interop = match factory::<UserConsentVerifier, IUserConsentVerifierInterop>() {
         Ok(i) => i,
@@ -296,6 +294,70 @@ fn verify(owner: isize) -> String {
         Ok(other) => format!("not verified: {}", other.0),
         Err(e) => format!("failed: {e}"),
     }
+}
+
+/// Windows' own credentials dialog, then a check of the password with
+/// Windows. Clipstar keeps nothing: the buffers are wiped straight away.
+#[cfg(windows)]
+fn windows_password(owner: isize) -> String {
+    use std::ffi::c_void;
+    use windows::core::{HSTRING, PCWSTR, PWSTR};
+    use windows::Win32::Foundation::{CloseHandle, BOOL, HANDLE, HWND};
+    use windows::Win32::Security::Credentials::{
+        CredUIPromptForWindowsCredentialsW, CredUnPackAuthenticationBufferW, CREDUIWIN_ENUMERATE_CURRENT_USER,
+        CREDUI_INFOW, CRED_PACK_FLAGS,
+    };
+    use windows::Win32::Security::{LogonUserW, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT};
+    use windows::Win32::System::Com::CoTaskMemFree;
+    let caption = HSTRING::from("Clipstar");
+    let message = HSTRING::from("Enter your Windows password to show your copied text.");
+    let info = CREDUI_INFOW {
+        cbSize: std::mem::size_of::<CREDUI_INFOW>() as u32,
+        hwndParent: HWND(owner as *mut c_void),
+        pszMessageText: PCWSTR(message.as_ptr()),
+        pszCaptionText: PCWSTR(caption.as_ptr()),
+        hbmBanner: Default::default(),
+    };
+    let mut package = 0u32;
+    let mut out: *mut c_void = std::ptr::null_mut();
+    let mut out_size = 0u32;
+    let mut save = BOOL(0);
+    let r = unsafe {
+        CredUIPromptForWindowsCredentialsW(Some(&info), 0, &mut package, None, 0, &mut out, &mut out_size,
+                                           Some(&mut save), CREDUIWIN_ENUMERATE_CURRENT_USER)
+    };
+    if r != 0 {
+        return "cancelled".into();
+    }
+    let mut user = [0u16; 514];
+    let mut domain = [0u16; 338];
+    let mut pass = [0u16; 514];
+    let (mut ul, mut dl, mut pl) = (user.len() as u32, domain.len() as u32, pass.len() as u32);
+    let unpacked = unsafe {
+        CredUnPackAuthenticationBufferW(CRED_PACK_FLAGS(0), out, out_size, PWSTR(user.as_mut_ptr()), &mut ul,
+                                        PWSTR(domain.as_mut_ptr()), Some(&mut dl), PWSTR(pass.as_mut_ptr()), &mut pl)
+    };
+    unsafe {
+        std::ptr::write_bytes(out as *mut u8, 0, out_size as usize);
+        CoTaskMemFree(Some(out));
+    }
+    let answer = match unpacked {
+        Err(e) => format!("failed: {e}"),
+        Ok(()) => {
+            let mut token = HANDLE::default();
+            let d = if domain[0] == 0 { PCWSTR::null() } else { PCWSTR(domain.as_ptr()) };
+            match unsafe { LogonUserW(PCWSTR(user.as_ptr()), d, PCWSTR(pass.as_ptr()), LOGON32_LOGON_INTERACTIVE,
+                                      LOGON32_PROVIDER_DEFAULT, &mut token) } {
+                Ok(()) => {
+                    unsafe { let _ = CloseHandle(token); }
+                    "ok".into()
+                }
+                Err(_) => "wrong password".into(),
+            }
+        }
+    };
+    pass.iter_mut().for_each(|c| *c = 0);
+    answer
 }
 
 #[cfg(not(windows))]
