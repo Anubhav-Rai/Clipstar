@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastTurn = Date.distantPast
     /// Whether the swipe in progress zooms rather than slides.
     private var zooming = false
+    /// Zoomed with Command and the wheel: it lasts while Command is held.
+    private var wheelZoom = false
+    private var settleWork: DispatchWorkItem?
 
     /// Whether the panel is ordered in. It can be in and still tucked away
     /// above the top edge, like an auto-hiding Dock.
@@ -552,6 +555,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         updateMousePassThrough(mouse)
+        if wheelZoom, !NSEvent.modifierFlags.contains(.command) {
+            wheelZoom = false
+            unzoom()
+        }
         if line.zoomID != nil, now.timeIntervalSince(lastTurn) > 0.3,
            let frame = zoomedFrame(), !frame.insetBy(dx: -12, dy: -12).contains(flippedPointer()) {
             unzoom()
@@ -624,26 +631,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Turning the ring
 
-    /// Sideways, two fingers slide the rail; up and down, they zoom the card
-    /// under the pointer, bigger as the fingers go up. A gesture keeps to
-    /// whichever way it started. A mouse wheel slides with Shift held and
-    /// zooms without.
+    /// On a trackpad, two fingers sideways slide the rail; up and down, they
+    /// zoom the card under the pointer, bigger as the fingers go up, for as
+    /// long as they are down. A gesture keeps to whichever way it started.
+    /// A mouse wheel slides the rail; with Command held it zooms instead,
+    /// for as long as Command is held.
     private func turnRing(_ event: NSEvent) {
         lastTurn = Date()
         let dx = event.scrollingDeltaX, dy = event.scrollingDeltaY
-        if event.phase == .began || (event.phase.isEmpty && event.momentumPhase.isEmpty) {
+        // A wheel sends no gesture phases, smooth scrolling mice included.
+        if event.phase.isEmpty && event.momentumPhase.isEmpty {
+            wheel(event, dx: dx, dy: dy)
+            return
+        }
+        if event.phase == .began {
             zooming = abs(dy) > abs(dx)
             if zooming { zoomTarget() }
-        }
-        if !event.hasPreciseScrollingDeltas {
-            if event.modifierFlags.contains(.shift) || abs(dx) > abs(dy) {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    line.scroll(by: (abs(dx) > abs(dy) ? dx : dy) > 0 ? 1 : -1)
-                }
-            } else if line.zoomID != nil {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { zoom(by: dy > 0 ? 0.35 : -0.35) }
-            }
-            return
         }
         if zooming {
             // Only while the fingers are down: lifting them puts it back, and
@@ -664,6 +667,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { line.settle() }
             }
+        }
+    }
+
+    private func wheel(_ event: NSEvent, dx: CGFloat, dy: CGFloat) {
+        let d = abs(dx) > abs(dy) ? dx : dy
+        guard d != 0 else { return }
+        if event.modifierFlags.contains(.command) {
+            if line.zoomID == nil { zoomTarget() }
+            guard line.zoomID != nil else { return }
+            wheelZoom = true
+            let up = event.isDirectionInvertedFromDevice ? -d : d
+            if event.hasPreciseScrollingDeltas {
+                zoom(by: up / 120)
+            } else {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { zoom(by: up > 0 ? 0.25 : -0.25) }
+            }
+            return
+        }
+        unzoom()
+        if event.hasPreciseScrollingDeltas {
+            // Smooth scrolling follows the wheel, then settles into the ports
+            // once it stops.
+            line.scroll(by: d / 60)
+            settleWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { self?.line.settle() }
+            }
+            settleWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { line.scroll(by: d > 0 ? 1 : -1) }
         }
     }
 
