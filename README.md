@@ -4,6 +4,8 @@
 
 Your screenshots and copies, docked round the edge of your screen against the Milky Way.
 
+A space-themed fork of [Tendedero](https://github.com/alejandrobujan/tendedero) by [Alejandro Buján](https://github.com/alejandrobujan): all the groundwork is his. See [Credits and thanks](#credits-and-thanks).
+
 <p align="center"><img src="docs/clipstar.gif" width="720" alt="Clipstar: screenshots on a rail round the screen, numbered newest first, scrolling along it"></p>
 
 <sub>Mockup of the layout. Your own screenshots appear on the cards.</sub>
