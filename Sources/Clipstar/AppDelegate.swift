@@ -827,6 +827,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// As many as the dock has ports on this screen.
+    /// A ship takes more room than a card, so the ports are laid out again.
+    private func setSkin(_ skin: Skin) {
+        guard skin != Skin.current else { return }
+        Skin.current = skin
+        updateCapacity()
+        line.objectWillChange.send()
+    }
+
     private func updateCapacity() {
         let ports = max(4, Dock.ring(in: panel.frame.size).count)
         guard ports != line.ports else { return }
@@ -974,6 +982,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         keepItem.submenu = keeps
         menu.addItem(keepItem)
+
+        let skinItem = NSMenuItem(title: L("Skin"), action: nil, keyEquivalent: "")
+        let skins = NSMenu()
+        for skin in Skin.allCases {
+            let item = ClosureMenuItem(skin.title) { [weak self] in self?.setSkin(skin) }
+            item.state = Skin.current == skin ? .on : .off
+            skins.addItem(item)
+        }
+        skinItem.submenu = skins
+        menu.addItem(skinItem)
+
+        let arrivalItem = NSMenuItem(title: L("Arrival"), action: nil, keyEquivalent: "")
+        let arrivals = NSMenu()
+        for arrival in Arrival.allCases {
+            let item = ClosureMenuItem(arrival.title) { Arrival.current = arrival }
+            item.state = Arrival.current == arrival ? .on : .off
+            arrivals.addItem(item)
+        }
+        arrivalItem.submenu = arrivals
+        menu.addItem(arrivalItem)
 
         let skyItem = NSMenuItem(title: L("Background"), action: nil, keyEquivalent: "")
         let skies = NSMenu()

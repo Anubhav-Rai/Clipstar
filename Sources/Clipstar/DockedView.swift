@@ -12,12 +12,17 @@ struct DockedView: View {
     /// stays put while it grows.
     let zoom: CGFloat
     let anchor: UnitPoint
+    /// Where its port is on the screen, and the screen's size, for its flight.
+    let port: CGPoint
+    let screen: CGSize
 
     /// A sharp version for when it is zoomed; the docked one is small.
     @State private var full: NSImage?
 
-    /// 1 is far past the edge of the screen, 0 is docked.
-    @State private var warp: CGFloat = 1
+    /// How far along its flight it is: 0 away, 1 docked.
+    @State private var k: CGFloat = 0
+    /// Going away: every arrival leaves the same quick way.
+    @State private var leaving = false
     /// The clamps closed on the card.
     @State private var locked = false
     /// The shockwave of docking, 0 to 1. Invisible at 1.
@@ -31,19 +36,23 @@ struct DockedView: View {
     /// Ships in a fleet arrive a moment apart, in the order the ports fill.
     private var stagger: Double { min(Double(slot.index) * 0.045, 0.6) }
 
-    /// How far out a ship waits before warping in.
-    private static let distance: CGFloat = 1400
+    private var skin: Skin { Skin.current }
+
+    /// The screenshot's frame inside the box the card is given.
+    private var photoFrame: CGRect {
+        let box = Dock.box, c = DockedView.cardSize(for: item.thumb.size)
+        return CGRect(x: (box.width - c.width) / 2, y: (box.height - c.height) / 2, width: c.width, height: c.height)
+    }
 
     var body: some View {
-        let a = slot.approach
         ZStack {
-            streak
+            Hull(skin: skin, photo: photoFrame)
+                .frame(width: Dock.box.width, height: Dock.box.height)
             card
-                // Stretched by the speed, along the way it travels.
-                .scaleEffect(x: slot.side.isHorizontal ? 1 : 1 + 2.5 * warp,
-                             y: slot.side.isHorizontal ? 1 + 2.5 * warp : 1)
-            clamps
-                .opacity(zoom > 1.05 ? 0 : 1)
+            if skin == .card {
+                clamps
+                    .opacity(zoom > 1.05 ? 0 : 1)
+            }
             Circle()
                 .stroke(Dock.cyan, lineWidth: 3 * (1 - ring))
                 .frame(width: 40, height: 40)
@@ -51,8 +60,10 @@ struct DockedView: View {
                 .opacity(Double(1 - ring))
                 .allowsHitTesting(false)
         }
+        .frame(width: Dock.box.width, height: Dock.box.height)
         .scaleEffect(zoom, anchor: anchor)
-        .offset(x: a.dx * Self.distance * warp, y: a.dy * Self.distance * warp)
+        .modifier(Flight(k: k, arrival: leaving ? .warp : Arrival.current, port: port, slot: slot, size: screen,
+                         skin: skin, photo: photoFrame, box: Dock.box))
         .opacity(item.falling || item.flying ? 0 : 1)
         .transaction { t in if item.falling { t.animation = nil } }
         .onAppear(perform: appear)
@@ -61,7 +72,7 @@ struct DockedView: View {
                 var t = Transaction()
                 t.disablesAnimations = true
                 withTransaction(t) {
-                    warp = on ? 0 : 1
+                    k = on ? 1 : 0
                     locked = on
                 }
             } else {
@@ -86,27 +97,28 @@ struct DockedView: View {
     private func appear() {
         if item.flying {
             // The launch flies it here; it shows itself once it lands.
-            warp = 0
+            k = 1
         } else if line.revealed {
             // New, or brought round by the ring: already docked.
-            warp = 0
+            k = 1
             locked = true
         }
     }
 
     private func warpIn() { warpIn(after: stagger) }
 
-    /// Huge speed, then a hard stop at the port: most of the way is covered
-    /// in the first moment.
+    /// Flies in the way Arrival says; the easing is in the flight itself.
     private func warpIn(after delay: Double) {
         var t = Transaction()
         t.disablesAnimations = true
         withTransaction(t) {
-            warp = 1
+            leaving = false
+            k = 0
             locked = false
         }
-        withAnimation(.timingCurve(0.05, 0.9, 0.12, 1, duration: 0.6).delay(delay)) { warp = 0 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay + 0.5) {
+        let arrival = Arrival.current
+        withAnimation(.linear(duration: arrival.duration).delay(delay)) { k = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay + arrival.duration * 0.92) {
             guard line.revealed else { return }
             dock()
         }
@@ -128,26 +140,11 @@ struct DockedView: View {
     /// Slips away past its edge, quickly, nearly together with the rest.
     private func warpOut() {
         withAnimation(.easeOut(duration: 0.08)) { locked = false }
-        withAnimation(.easeIn(duration: 0.22).delay(min(stagger * 0.1, 0.05))) { warp = 1 }
+        leaving = true
+        withAnimation(.easeIn(duration: 0.22).delay(min(stagger * 0.1, 0.05))) { k = 0 }
     }
 
     // MARK: Parts
-
-    /// The light it leaves behind while moving fast, pointing back the way
-    /// it came.
-    private var streak: some View {
-        let a = slot.approach
-        let length = 900 * warp
-        let thick = (slot.side.isHorizontal ? Dock.box.width : Dock.box.height) * 0.35
-        return ZStack {
-            Capsule().fill(Dock.cyan.opacity(0.35)).frame(width: length, height: thick).blur(radius: 6)
-            Capsule().fill(Color.white.opacity(0.9)).frame(width: length, height: 2.5)
-        }
-        .offset(x: length / 2)
-        .rotationEffect(.radians(atan2(a.dy, a.dx)))
-        .opacity(warp > 0.01 ? 1 : 0)
-        .allowsHitTesting(false)
-    }
 
     /// Two brackets either side of the card, along the rail.
     private var clamps: some View {
@@ -169,7 +166,10 @@ struct DockedView: View {
 
     /// The photo fits inside the card area keeping its proportions.
     static func photoSize(for size: CGSize) -> CGSize {
-        let maxW = Layout.cardWidth - Frame.inset * 2, maxH = Layout.photoMaxHeight
+        // A ship takes room round the screenshot, so the screenshot is smaller.
+        let skin = Skin.current, box = Dock.box
+        let maxW = skin == .card ? Layout.cardWidth - Frame.inset * 2 : box.width * skin.screenShare.width - Frame.inset * 2
+        let maxH = skin == .card ? Layout.photoMaxHeight : box.height * skin.screenShare.height - Frame.inset * 2
         guard size.width > 0, size.height > 0 else { return CGSize(width: maxW, height: maxH) }
         let scale = min(maxW / size.width, maxH / size.height)
         return CGSize(width: size.width * scale, height: size.height * scale)
@@ -182,6 +182,10 @@ struct DockedView: View {
     }
 
     private var photoSize: CGSize { Self.photoSize(for: item.thumb.size) }
+
+    /// Corner radii of the card and the screenshot in it, rounder on some ships.
+    private var outer: CGFloat { skin == .card ? Frame.radius : skin.corner + Frame.inset }
+    private var inner: CGFloat { max(0, outer - Frame.inset) }
 
     /// A picture, or copied text: asterisks until unlocked.
     @ViewBuilder private var face: some View {
@@ -198,7 +202,7 @@ struct DockedView: View {
         face
             .frame(width: photoSize.width, height: photoSize.height)
             .overlay(Scanlines().opacity(hovering ? 0.03 : 0.07))
-            .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: inner, style: .continuous))
             .overlay {
                 // A recording says so with a play button over its first frame.
                 if item.isRecording {
@@ -213,9 +217,9 @@ struct DockedView: View {
             }
             .padding(Frame.inset)
             .background(Color.black.opacity(0.45),
-                        in: RoundedRectangle(cornerRadius: Frame.radius, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: outer, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Frame.radius, style: .continuous)
+                RoundedRectangle(cornerRadius: outer, style: .continuous)
                     .stroke(Dock.cyan.opacity(hovering ? 1 : 0.7), lineWidth: hovering ? 1.6 : 1.1)
             )
             .shadow(color: Dock.cyan.opacity(hovering || number == 1 ? 0.8 : 0.4), radius: hovering || number == 1 ? 14 : 6)
@@ -271,7 +275,7 @@ struct DockedView: View {
             .background(
                 GeometryReader { g in
                     Color.clear.preference(key: HitRectsKey.self,
-                                           value: item.falling || warp > 0.01 ? [:] : [item.id: g.frame(in: .global)])
+                                           value: item.falling || k < 0.99 ? [:] : [item.id: g.frame(in: .global)])
                 }
             )
     }

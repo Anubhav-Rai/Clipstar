@@ -54,7 +54,11 @@ enum Dock {
     static let amber = Color(red: 1, green: 0.71, blue: 0.28)
 
     /// The box a card takes, whatever its proportions.
-    static var box: CGSize { CGSize(width: Layout.cardWidth, height: Layout.photoMaxHeight + Frame.inset * 2) }
+    static var box: CGSize {
+        let card = CGSize(width: Layout.cardWidth, height: Layout.photoMaxHeight + Frame.inset * 2)
+        // A ship is a little bigger than a card, with the screenshot smaller inside it.
+        return Skin.current == .card ? card : CGSize(width: card.width * 1.3, height: card.height * 1.35)
+    }
 
     /// How deep the band along each edge is, rail and card included.
     static var topBand: CGFloat { rail + gap + box.height }

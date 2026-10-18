@@ -40,7 +40,8 @@ struct DockView: View {
             let newer = Int(line.scroll.rounded())
             ZStack(alignment: .topLeading) {
                 SpaceBackground(size: size, ring: ring, head: head, tail: tail, on: line.revealed, instant: line.instant)
-                if !line.instant { Hyperspace(size: size, on: line.revealed) }
+                if !line.instant && [.warp, .hyperjump].contains(Arrival.current) { Hyperspace(size: size, on: line.revealed) }
+                if !line.instant && Arrival.current == .wormhole { Wormhole(size: size, on: line.revealed) }
 
                 if !live.isEmpty {
                     Beacon(label: newer > 0 ? "+\(newer) newer" : nil, on: line.revealed)
@@ -69,7 +70,8 @@ struct DockView: View {
                                    zoom: zoomed ? line.zoom : 1,
                                    // Grows towards the middle of the screen, so it never runs off an edge.
                                    anchor: UnitPoint(x: place.center.x / max(size.width, 1),
-                                                     y: place.center.y / max(size.height, 1)))
+                                                     y: place.center.y / max(size.height, 1)),
+                                   port: place.center, screen: size)
                             .frame(width: Dock.box.width, height: Dock.box.height)
                             .zIndex(zoomed ? 10 : 0)
                             .scaleEffect(place.scale)
@@ -274,7 +276,7 @@ enum Sky {
 
     @MainActor
     static func image(size: CGSize, ring: [Slot], head: CGPoint, tail: CGPoint) -> CGImage? {
-        let key = "\(size.width)x\(size.height)-\(ring.count)-\(Layout.size.rawValue)"
+        let key = "\(size.width)x\(size.height)-\(ring.count)-\(Layout.size.rawValue)-\(Skin.current.rawValue)"
         if let cache, cache.key == key { return cache.image }
         let w = Int(size.width * 2), h = Int(size.height * 2)
         guard w > 0, h > 0, let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
@@ -517,6 +519,44 @@ private struct Hyperspace: View {
         since = now
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.length) {
             if since == now { since = nil }
+        }
+    }
+}
+
+/// Rings swirling out of the middle of the screen while the fleet comes
+/// through a wormhole.
+private struct Wormhole: View {
+    let size: CGSize
+    let on: Bool
+
+    @State private var since: Date?
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: since == nil)) { context in
+            Canvas { ctx, _ in
+                guard let since else { return }
+                let t = context.date.timeIntervalSince(since)
+                let fade = min(1, t / 0.2) * max(0, 1 - (t - 1.2) / 0.5)
+                guard fade > 0 else { return }
+                let c = CGPoint(x: size.width * 0.55, y: size.height * 0.5)
+                for i in 0..<14 {
+                    let ph = (Double(i) / 14 + t * 0.5).truncatingRemainder(dividingBy: 1)
+                    var ring = Path(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2))
+                    ring = ring.applying(CGAffineTransform(scaleX: 20 + ph * 260, y: 12 + ph * 160)
+                        .concatenating(CGAffineTransform(rotationAngle: t * 1.5))
+                        .concatenating(CGAffineTransform(translationX: c.x, y: c.y)))
+                    ctx.stroke(ring, with: .color(Color(red: 0.71, green: 0.55, blue: 1).opacity(0.55 * (1 - ph) * fade)), lineWidth: 1.5)
+                }
+                ctx.fill(Path(ellipseIn: CGRect(x: c.x - 60, y: c.y - 60, width: 120, height: 120)),
+                         with: .radialGradient(Gradient(colors: [.white.opacity(0.6 * fade), .clear]), center: c, startRadius: 0, endRadius: 60))
+            }
+        }
+        .allowsHitTesting(false)
+        .onChange(of: on) { _, now in
+            guard now else { return }
+            let start = Date()
+            since = start
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { if since == start { since = nil } }
         }
     }
 }
