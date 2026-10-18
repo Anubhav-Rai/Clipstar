@@ -13,6 +13,9 @@ struct Pegged: Identifiable, Equatable {
     /// Every photo hangs a little crooked, like on a real line.
     let tilt = Double.random(in: -2.5...2.5)
     var falling = false
+    /// When it arrived, so a brand new one warps in while one brought out
+    /// of the gate by the ring just appears.
+    let born = Date()
     /// Still flying in from where it was captured; the card waits hidden.
     var flying = false
     /// A screen recording rather than a screenshot.
@@ -39,11 +42,14 @@ final class Line: ObservableObject {
     /// uses them to only catch clicks over photos and let the rest through.
     var hitRects: [UUID: CGRect] = [:]
 
+    /// How many the dock keeps. Past the ports on screen, the rest wait in
+    /// the warp gate and the ring turns to bring them out.
+    var maxItems = 100
     /// How many ports the dock has on this screen.
-    var maxItems = 8
-    /// Which port each docked screenshot holds. A screenshot keeps its port
-    /// while it is docked, so nothing moves when another one arrives.
-    @Published private(set) var slotOf: [UUID: Int] = [:]
+    @Published var ports = 12
+    /// How far the ring is turned back from the newest, in cards. 0 shows
+    /// the newest ones.
+    @Published var scroll: CGFloat = 0
 
 
     var soundOn: Bool {
@@ -69,13 +75,13 @@ final class Line: ObservableObject {
         var item = Pegged(url: url, thumb: thumb)
         item.flying = flying
         items.append(item)
+        scroll = 0
         // A full line lets the oldest photo fall off the far end. Only one: a
         // line hung on a wider screen keeps its length here instead of losing
         // several photos to a single capture.
         if liveCount > maxItems, let oldest = items.first(where: { !$0.falling }) {
             letGo(oldest.id)
         }
-        assignSlot(item.id)
         save()
         if !quietly { play("Tink", volume: 0.35) }
         return item.id
@@ -96,7 +102,6 @@ final class Line: ObservableObject {
         onFall?(items[i])
         items[i].falling = true
         hitRects[id] = nil
-        slotOf[id] = nil
         save()
         if !quietly { play("Pop", volume: 0.25) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
@@ -206,14 +211,33 @@ final class Line: ObservableObject {
         while liveCount > maxItems, let oldest = items.first(where: { !$0.falling }) {
             letGo(oldest.id)
         }
-        for (id, slot) in slotOf where slot >= maxItems { slotOf[id] = nil }
-        for item in items where !item.falling && slotOf[item.id] == nil { assignSlot(item.id) }
+        scroll = min(scroll, maxScroll)
     }
 
-    /// The first free port, in the order the dock fills.
-    private func assignSlot(_ id: UUID) {
-        let taken = Set(slotOf.values)
-        if let free = (0..<max(maxItems, 1)).first(where: { !taken.contains($0) }) { slotOf[id] = free }
+    // MARK: Turning the ring
+
+    /// How far back the ring can turn: until the oldest is at the first port.
+    var maxScroll: CGFloat { CGFloat(max(0, liveCount - ports)) }
+
+    /// A scroll gesture turns the ring, following the fingers.
+    func scroll(by cards: CGFloat) {
+        let next = min(maxScroll, max(0, scroll + cards))
+        if next != scroll { scroll = next }
+    }
+
+    /// Once the fingers let go, every card settles into a port.
+    func settle() {
+        scroll = min(maxScroll, max(0, scroll.rounded()))
+    }
+
+    /// Where a live screenshot sits on the ring, in ports from the first:
+    /// 0 is the first port after the gate, ports - 1 the last. Below 0 or
+    /// past the last, it is in the gate.
+    func ringPosition(of id: UUID) -> CGFloat? {
+        let live = items.filter { !$0.falling }
+        guard let i = live.firstIndex(where: { $0.id == id }) else { return nil }
+        let first = CGFloat(max(0, live.count - ports)) - scroll
+        return CGFloat(i) - first
     }
 
     private func letGo(_ id: UUID) {
@@ -311,9 +335,7 @@ final class Line: ObservableObject {
         for path in paths where FileManager.default.fileExists(atPath: path) {
             let url = URL(fileURLWithPath: path)
             guard !items.contains(where: { $0.url == url }), let thumb = makeThumbnail(url) else { continue }
-            let item = Pegged(url: url, thumb: thumb)
-            items.append(item)
-            assignSlot(item.id)
+            items.append(Pegged(url: url, thumb: thumb))
         }
     }
 

@@ -87,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Markup.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         Trim.shared.onSaved = { [weak self] url in self?.line.reloadThumbnail(for: url) }
         line.onFall = { [weak self] item in self?.fall(item) }
+        panel.onScroll = { [weak self] event in self?.turnRing(event) }
 
         line.$items
             .receive(on: RunLoop.main)
@@ -331,14 +332,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Where a card docks, in screen coordinates, using the same layout as
     /// the dock view, and the port it docks at.
     private func cardFrame(for id: UUID) -> (CGRect, Slot)? {
-        guard let item = line.items.first(where: { $0.id == id }), let index = line.slotOf[id] else { return nil }
-        let slots = Dock.slots(in: panel.frame.size)
-        guard index < slots.count else { return nil }
-        let slot = slots[index]
-        let size = DockedView.cardSize(for: item.thumb.size)
-        return (CGRect(x: panel.frame.minX + slot.center.x - size.width / 2,
-                       y: panel.frame.maxY - slot.center.y - size.height / 2,
-                       width: size.width, height: size.height), slot)
+        let size = panel.frame.size
+        guard let item = line.items.first(where: { $0.id == id }), let p = line.ringPosition(of: id),
+              let place = Dock.place(at: p, ring: Dock.ring(in: size), gate: Dock.gate(in: size)) else { return nil }
+        let card = DockedView.cardSize(for: item.thumb.size)
+        return (CGRect(x: panel.frame.minX + place.center.x - card.width / 2,
+                       y: panel.frame.maxY - place.center.y - card.height / 2,
+                       width: card.width, height: card.height), place.slot)
     }
 
     /// Decides whether the panel is ordered in at all: something to show,
@@ -554,6 +554,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: Turning the ring
+
+    /// Two fingers turn the ring, either way they move; a mouse wheel turns
+    /// it a port per notch. When the fingers lift, it settles into the ports.
+    private func turnRing(_ event: NSEvent) {
+        let delta = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
+            ? event.scrollingDeltaX : event.scrollingDeltaY
+        if event.hasPreciseScrollingDeltas {
+            line.scroll(by: delta / 60)
+            if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { line.settle() }
+            }
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                line.scroll(by: delta > 0 ? 1 : -1)
+            }
+        }
+    }
+
     // MARK: Shortcut
 
     private func registerShortcut() {
@@ -593,8 +612,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// As many as the dock has ports on this screen.
     private func updateCapacity() {
         let ports = max(4, Dock.slots(in: panel.frame.size).count)
-        guard ports != line.maxItems else { return }
-        line.maxItems = ports
+        guard ports != line.ports else { return }
+        line.ports = ports
         line.trim()
     }
 

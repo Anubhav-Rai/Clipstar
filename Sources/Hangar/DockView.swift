@@ -31,10 +31,21 @@ struct DockView: View {
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
-            let slots = Array(Dock.slots(in: size).prefix(line.maxItems))
+            let ring = Dock.ring(in: size)
+            let gate = Dock.gate(in: size)
+            let live = line.items.filter { !$0.falling }
+            let overflow = live.count > ring.count
             ZStack(alignment: .topLeading) {
-                HUD(size: size, slots: slots, docked: Set(line.slotOf.values), on: line.revealed)
+                HUD(size: size, slots: ring, docked: Set(0..<min(live.count, ring.count)), on: line.revealed)
                 Hyperspace(size: size, on: line.revealed)
+
+                if overflow {
+                    Gate(on: line.revealed)
+                        .position(gate)
+                    Counter(first: Int(CGFloat(live.count - ring.count) - line.scroll.rounded()) + 1,
+                            last: Int(CGFloat(live.count) - line.scroll.rounded()), total: live.count, on: line.revealed)
+                        .position(x: size.width / 2, y: Dock.topBand + 22)
+                }
 
                 if line.items.isEmpty && line.revealed {
                     Hint()
@@ -43,19 +54,75 @@ struct DockView: View {
                 }
 
                 ForEach(line.items) { item in
-                    if let s = line.slotOf[item.id], s < slots.count {
-                        DockedView(item: item, line: line, slot: slots[s])
+                    if let p = line.ringPosition(of: item.id),
+                       let place = Dock.place(at: p, ring: ring, gate: gate) {
+                        DockedView(item: item, line: line, slot: place.slot)
                             .frame(width: Dock.box.width, height: Dock.box.height)
-                            .position(slots[s].center)
+                            .scaleEffect(place.scale)
+                            .rotationEffect(.degrees(place.spin))
+                            .opacity(place.opacity)
+                            .position(place.center)
+                            .transition(.identity)
                     }
                 }
             }
-            .animation(.spring(response: 0.55, dampingFraction: 0.8), value: line.slotOf)
+            .animation(.spring(response: 0.55, dampingFraction: 0.82), value: line.items.map(\.id))
             .animation(.easeInOut(duration: 0.3), value: line.items.isEmpty)
         }
         .onPreferenceChange(HitRectsKey.self) { rects in
             line.hitRects = rects
         }
+    }
+}
+
+/// The warp gate: a spinning portal in the corner while some screenshots
+/// wait there.
+private struct Gate: View {
+    let on: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !on)) { context in
+            let a = context.date.timeIntervalSinceReferenceDate * 140
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [.white.opacity(0.8), Dock.cyan.opacity(0.5), Dock.cyan.opacity(0)],
+                                         center: .center, startRadius: 0, endRadius: 30))
+                    .frame(width: 60, height: 60)
+                Circle()
+                    .stroke(Dock.cyan, style: StrokeStyle(lineWidth: 2.5, dash: [14, 8]))
+                    .frame(width: 36, height: 36)
+                    .rotationEffect(.degrees(a))
+                    .shadow(color: Dock.cyan, radius: 4)
+                Circle()
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 1.4, dash: [6, 6]))
+                    .frame(width: 20, height: 20)
+                    .rotationEffect(.degrees(-a * 1.5))
+            }
+        }
+        .opacity(on ? 1 : 0)
+        .animation(.easeOut(duration: 0.3), value: on)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Which of them the ring shows, while there are more than ports.
+private struct Counter: View {
+    let first: Int
+    let last: Int
+    let total: Int
+    let on: Bool
+
+    var body: some View {
+        Text("\(first)–\(last) of \(total)")
+            .font(.system(size: 12, weight: .bold, design: .monospaced))
+            .foregroundStyle(Dock.cyan)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(Color.black.opacity(0.6), in: Capsule())
+            .overlay(Capsule().stroke(Dock.cyan.opacity(0.6), lineWidth: 1))
+            .opacity(on ? 1 : 0)
+            .animation(.easeOut(duration: 0.3), value: on)
+            .allowsHitTesting(false)
     }
 }
 

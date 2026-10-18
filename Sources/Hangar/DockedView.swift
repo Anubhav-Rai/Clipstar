@@ -57,7 +57,13 @@ struct DockedView: View {
             // The launch flies it here; it shows itself once it lands.
             warp = 0
         } else if line.revealed {
-            warpIn(after: 0)
+            if Date().timeIntervalSince(item.born) < 1 {
+                warpIn(after: 0)
+            } else {
+                // Brought round by the ring: already docked.
+                warp = 0
+                locked = true
+            }
         }
     }
 

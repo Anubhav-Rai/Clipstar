@@ -102,6 +102,52 @@ enum Dock {
         return out
     }
 
+    /// The same ports in ring order: clockwise from the top left, along the
+    /// top, down the right, back along the bottom and up the left, ending
+    /// next to the gate it started from.
+    static func ring(in size: CGSize) -> [Slot] {
+        let all = slots(in: size)
+        func part(_ side: Side, _ key: (Slot) -> CGFloat) -> [Slot] { all.filter { $0.side == side }.sorted { key($0) < key($1) } }
+        let ordered = part(.top) { $0.center.x } + part(.right) { $0.center.y }
+            + part(.bottom) { -$0.center.x } + part(.left) { -$0.center.y }
+        return ordered.enumerated().map { Slot(index: $0.offset, side: $0.element.side, port: $0.element.port, center: $0.element.center) }
+    }
+
+    /// The warp gate in the top left corner, where screenshots that do not
+    /// fit wait for the ring to bring them round.
+    static func gate(in size: CGSize) -> CGPoint {
+        CGPoint(x: sideBand * 0.42, y: topBand * 0.45)
+    }
+
+    /// Where a card is drawn at a position on the ring, in ports. Between
+    /// two ports it is on the way from one to the other; past either end it
+    /// shrinks and spins into the gate.
+    struct Placement {
+        var center: CGPoint
+        var slot: Slot
+        var scale: CGFloat
+        var opacity: Double
+        var spin: Double
+    }
+
+    static func place(at p: CGFloat, ring: [Slot], gate: CGPoint) -> Placement? {
+        guard let first = ring.first, let last = ring.last else { return nil }
+        let n = CGFloat(ring.count)
+        // Into the gate over half a port past either end.
+        if p < 0 || p > n - 1 {
+            let beyond = p < 0 ? -p : p - (n - 1)
+            let k = 1 - min(1, beyond / 0.5)
+            guard k > 0.02 else { return nil }
+            let from = p < 0 ? first : last
+            let c = CGPoint(x: gate.x + (from.center.x - gate.x) * k, y: gate.y + (from.center.y - gate.y) * k)
+            return Placement(center: c, slot: from, scale: 0.15 + 0.85 * k, opacity: Double(k), spin: Double(1 - k) * 160)
+        }
+        let i = Int(p.rounded(.down)), f = p - CGFloat(i)
+        let a = ring[i], b = ring[min(i + 1, ring.count - 1)]
+        let c = CGPoint(x: a.center.x + (b.center.x - a.center.x) * f, y: a.center.y + (b.center.y - a.center.y) * f)
+        return Placement(center: c, slot: f < 0.5 ? a : b, scale: 1, opacity: 1, spin: 0)
+    }
+
     /// The middle of the screen, away from every band: the pointer resting
     /// here counts as having left the dock.
     static func inner(of size: CGSize) -> CGRect {
