@@ -86,7 +86,8 @@ final class Line: ObservableObject {
             letGo(oldest.id)
         }
         save()
-        if !quietly { play("Tink", volume: 0.35) }
+        // macOS already plays its shutter for a screenshot: docking it makes
+        // no sound of its own.
         return item.id
     }
 
