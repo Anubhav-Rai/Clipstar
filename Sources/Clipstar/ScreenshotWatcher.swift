@@ -133,6 +133,15 @@ final class ScreenshotWatcher {
         listing = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
+            // In iCloud Drive, files not on this Mac yet are hidden stand-ins;
+            // asking for them brings the real file, which then shows up here.
+            if self.folder.path.contains("/Mobile Documents/") {
+                let names = (try? FileManager.default.contentsOfDirectory(atPath: self.folder.path)) ?? []
+                for name in names where name.hasPrefix(".") && name.hasSuffix(".icloud") {
+                    let real = String(name.dropFirst().dropLast(".icloud".count))
+                    try? FileManager.default.startDownloadingUbiquitousItem(at: self.folder.appendingPathComponent(real))
+                }
+            }
             let files = self.listFolder()
             let settled = files.filter { self.creationDate($0) < self.launchDate }
             let candidates = files.filter { self.isCandidate($0) }

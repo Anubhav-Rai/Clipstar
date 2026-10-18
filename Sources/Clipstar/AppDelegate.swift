@@ -87,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restoreSettingsOnTermination()
         startWatcher()
         clipboardWatcher = ClipboardWatcher { [weak self] url in self?.hangCapture(url) }
-        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled { clipboardWatcher.start() }
+        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled || ClipboardWatcher.isRemoteEnabled { clipboardWatcher.start() }
 
         registerShortcut()
 
@@ -183,6 +183,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         folderWatchers.forEach { $0.stop() }
         folderWatchers = []
+        // Screenshots and photos the iPhone shortcut saves to iCloud Drive.
+        if ClipboardWatcher.isRemoteEnabled {
+            try? FileManager.default.createDirectory(at: PhoneFolder.url, withIntermediateDirectories: true)
+            let phone = ScreenshotWatcher(
+                folder: PhoneFolder.url, anyImage: true,
+                onNew: { [weak self] url in self?.hangCapture(url) },
+                onChange: { [weak self] in self?.line.prune() })
+            phone.start()
+            folderWatchers.append(phone)
+        }
         // A folder may also be watched for screenshots, like the Desktop; an
         // image both report hangs once.
         for folder in Self.extraFolders {
@@ -259,8 +269,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         syncClipboardWatcher()
     }
 
+    private func setPhone(_ on: Bool) {
+        ClipboardWatcher.isRemoteEnabled = on
+        syncClipboardWatcher()
+        startWatcher()
+        if on && !UserDefaults.standard.bool(forKey: "phoneHelpShown") {
+            UserDefaults.standard.set(true, forKey: "phoneHelpShown")
+            showPhoneHelp()
+        }
+    }
+
+    /// Copies need nothing more than Handoff. Screenshots and photos need a
+    /// two-step shortcut on the iPhone, explained here.
+    private func showPhoneHelp() {
+        let alert = NSAlert()
+        alert.messageText = L("Clipstar on your iPhone")
+        alert.informativeText = L("Copies: anything you copy on your iPhone docks here, through Universal Clipboard. Use the same Apple ID on both, with Wi-Fi, Bluetooth and Handoff on.") + "\n\n" + L("Screenshots and photos: in the Shortcuts app on your iPhone, make a shortcut with two actions, Receive Images from Share Sheet, then Save File to iCloud Drive › Clipstar with Ask Where to Save off. Name it Send to Clipstar. Share a screenshot or photo to it and it docks here.")
+        alert.addButton(withTitle: L("OK"))
+        alert.addButton(withTitle: L("Open Clipstar Folder"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            try? FileManager.default.createDirectory(at: PhoneFolder.url, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(PhoneFolder.url)
+        }
+    }
+
     private func syncClipboardWatcher() {
-        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled { clipboardWatcher.start() } else { clipboardWatcher.stop() }
+        if ClipboardWatcher.isEnabled || ClipboardWatcher.isTextEnabled || ClipboardWatcher.isRemoteEnabled {
+            clipboardWatcher.start()
+        } else {
+            clipboardWatcher.stop()
+        }
     }
 
     /// Quitting from the menu or logging out runs applicationWillTerminate.
@@ -898,6 +937,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clipboard.toolTip = L("Images you copy hang on the line too")
         menu.addItem(clipboard)
         menu.addItem(text)
+        let phone = ClosureMenuItem(L("Dock iPhone copies")) { [weak self] in
+            self?.setPhone(!ClipboardWatcher.isRemoteEnabled)
+        }
+        phone.state = ClipboardWatcher.isRemoteEnabled ? .on : .off
+        phone.toolTip = L("Copies from your iPhone, and screenshots it sends with the Send to Clipstar shortcut")
+        menu.addItem(phone)
+        if ClipboardWatcher.isRemoteEnabled {
+            menu.addItem(ClosureMenuItem(L("iPhone Setup…")) { [weak self] in self?.showPhoneHelp() })
+        }
 
         let bringDown = NSMenuItem(title: L("Bring the line down"), action: nil, keyEquivalent: "")
         let options = NSMenu()

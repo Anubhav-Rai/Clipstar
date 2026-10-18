@@ -70,6 +70,14 @@
 /* PeggedView */
 "Copied" = "Copied";
 "Dock copied text" = "Dock copied text";
+"Dock iPhone copies" = "Dock iPhone copies";
+"Copies from your iPhone, and screenshots it sends with the Send to Clipstar shortcut" = "Copies from your iPhone, and screenshots it sends with the Send to Clipstar shortcut";
+"iPhone Setup…" = "iPhone Setup…";
+"Clipstar on your iPhone" = "Clipstar on your iPhone";
+"OK" = "OK";
+"Copies: anything you copy on your iPhone docks here, through Universal Clipboard. Use the same Apple ID on both, with Wi-Fi, Bluetooth and Handoff on." = "Copies: anything you copy on your iPhone docks here, through Universal Clipboard. Use the same Apple ID on both, with Wi-Fi, Bluetooth and Handoff on.";
+"Screenshots and photos: in the Shortcuts app on your iPhone, make a shortcut with two actions, Receive Images from Share Sheet, then Save File to iCloud Drive › Clipstar with Ask Where to Save off. Name it Send to Clipstar. Share a screenshot or photo to it and it docks here." = "Screenshots and photos: in the Shortcuts app on your iPhone, make a shortcut with two actions, Receive Images from Share Sheet, then Save File to iCloud Drive › Clipstar with Ask Where to Save off. Name it Send to Clipstar. Share a screenshot or photo to it and it docks here.";
+"Open Clipstar Folder" = "Open Clipstar Folder";
 "Shown as asterisks until Touch ID or your password unlocks it" = "Shown as asterisks until Touch ID or your password unlocks it";
 "show your copied text" = "show your copied text";
 "Show Text…" = "Show Text…";

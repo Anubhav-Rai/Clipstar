@@ -23,6 +23,8 @@ struct Pegged: Identifiable, Equatable {
     var isRecording: Bool { Clipstar.isRecording(url) }
     /// Copied text rather than a picture.
     var isText: Bool { Clipstar.isText(url) }
+    /// Came from the iPhone.
+    var isFromPhone: Bool { Clipstar.isFromPhone(url) }
 
     static func == (a: Pegged, b: Pegged) -> Bool {
         a.id == b.id && a.falling == b.falling && a.flying == b.flying && a.thumb === b.thumb
@@ -433,6 +435,21 @@ final class Line: ObservableObject {
         guard let tiff = NSImage(contentsOf: url)?.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff) else { return nil }
         return rep.representation(using: .png, properties: [:])
+    }
+}
+
+/// From the iPhone: copied there and handed over by Universal Clipboard, or
+/// saved by the Send to Clipstar shortcut into Clipstar's iCloud folder.
+func isFromPhone(_ url: URL) -> Bool {
+    url.lastPathComponent.hasPrefix("iPhone ")
+        || url.standardizedFileURL.path.hasPrefix(PhoneFolder.url.standardizedFileURL.path + "/")
+}
+
+/// The folder in iCloud Drive the iPhone shortcut saves to.
+enum PhoneFolder {
+    static var url: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs/Clipstar", isDirectory: true)
     }
 }
 
