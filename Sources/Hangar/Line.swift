@@ -129,12 +129,24 @@ final class Line: ObservableObject {
         takeDown(others(than: id))
     }
 
-    /// One after another, and only the first makes a sound.
-    private func takeDown(_ live: [Pegged]) {
-        for (n, item) in live.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06 * Double(n)) { [weak self] in
-                self?.discard(item.id, quietly: n > 0)
-            }
+    /// All at once, however many: they leave the dock together, and the ones
+    /// from Hangar's folder go to the Trash in a single batch, off the main
+    /// thread. Files from anywhere else stay where they are.
+    private func takeDown(_ gone: [Pegged]) {
+        guard !gone.isEmpty else { return }
+        let ids = Set(gone.map(\.id))
+        let toTrash = gone.filter { isInInbox($0.id) }.map(\.url)
+        items.removeAll { ids.contains($0.id) }
+        for id in ids { hitRects[id] = nil }
+        scroll = min(scroll, maxScroll)
+        save()
+        if toTrash.isEmpty {
+            play("Pop", volume: 0.25)
+            return
+        }
+        if soundOn { Line.trashSound?.play() }
+        NSWorkspace.shared.recycle(toTrash) { _, error in
+            if let error { log.error("Could not trash: \(error.localizedDescription, privacy: .public)") }
         }
     }
 
