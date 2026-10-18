@@ -1,11 +1,11 @@
 import Foundation
 
-/// Inbox mode: Tendedero takes over where screenshots go.
+/// Inbox mode: Clipstar takes over where screenshots go.
 ///
 /// It changes the macOS screenshot settings in the Options menu of
 /// Cmd+Shift+5: the floating thumbnail is turned off, so the file is written
 /// at once instead of five seconds later, and captures are saved as files in
-/// Tendedero's own folder, so the Desktop only gets what you keep. Saving to
+/// Clipstar's own folder, so the Desktop only gets what you keep. Saving to
 /// the clipboard or Preview would leave nothing to hang, and a click on the
 /// line copies anyway.
 /// Screen recordings go there too, and hang on the line like screenshots.
@@ -36,7 +36,7 @@ enum Inbox {
 
     static let folder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Hangar/Screenshots", isDirectory: true)
+        return base.appendingPathComponent("Clipstar/Screenshots", isDirectory: true)
     }()
 
     /// The user's choice, kept across launches.

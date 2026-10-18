@@ -5,7 +5,7 @@
 // Usage: swift scripts/check-strings.swift
 import Foundation
 
-let sources = URL(fileURLWithPath: "Sources/Hangar")
+let sources = URL(fileURLWithPath: "Sources/Clipstar")
 let resources = sources.appendingPathComponent("Resources")
 let fm = FileManager.default
 

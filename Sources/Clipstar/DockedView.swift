@@ -224,7 +224,7 @@ struct DockedView: View {
             .opacity(dragging ? 0.45 : 1)
             .overlay(alignment: .topLeading) {
                 // Drawn here, clicked through GrabView, which sits on top. A
-                // cross sends a file in Hangar's folder to the Trash; for a
+                // cross sends a file in Clipstar's folder to the Trash; for a
                 // file anywhere else it only takes it out of the dock.
                 Image(systemName: line.isInInbox(item.id) ? "xmark" : "eye.slash")
                     .font(.system(size: 8, weight: .bold))

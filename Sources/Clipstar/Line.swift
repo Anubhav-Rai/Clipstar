@@ -4,7 +4,7 @@ import Combine
 import LocalAuthentication
 import os
 
-let log = Logger(subsystem: "com.anrai.Hangar", category: "line")
+let log = Logger(subsystem: "com.anrai.Clipstar", category: "line")
 
 /// One screenshot hanging on the line.
 struct Pegged: Identifiable, Equatable {
@@ -20,9 +20,9 @@ struct Pegged: Identifiable, Equatable {
     /// Still flying in from where it was captured; the card waits hidden.
     var flying = false
     /// A screen recording rather than a screenshot.
-    var isRecording: Bool { Hangar.isRecording(url) }
+    var isRecording: Bool { Clipstar.isRecording(url) }
     /// Copied text rather than a picture.
-    var isText: Bool { Hangar.isText(url) }
+    var isText: Bool { Clipstar.isText(url) }
 
     static func == (a: Pegged, b: Pegged) -> Bool {
         a.id == b.id && a.falling == b.falling && a.flying == b.flying && a.thumb === b.thumb
@@ -137,14 +137,14 @@ final class Line: ObservableObject {
     }
 
     /// Undocks everything but this one. Each goes the way of its own corner
-    /// button: to the Trash from Hangar's folder, and only out of the dock
+    /// button: to the Trash from Clipstar's folder, and only out of the dock
     /// from anywhere else.
     func takeDownOthers(than id: UUID) {
         takeDown(others(than: id))
     }
 
     /// All at once, however many: they leave the dock together, and the ones
-    /// from Hangar's folder go to the Trash in a single batch, off the main
+    /// from Clipstar's folder go to the Trash in a single batch, off the main
     /// thread. Files from anywhere else stay where they are.
     private func takeDown(_ gone: [Pegged]) {
         guard !gone.isEmpty else { return }
@@ -252,7 +252,7 @@ final class Line: ObservableObject {
         contentsOfFile: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/dock/drag to trash.aif",
         byReference: true)
 
-    /// Whether the file lives in Tendedero's own folder. Those are discarded
+    /// Whether the file lives in Clipstar's own folder. Those are discarded
     /// to the Trash, or the folder would fill up with forgotten screenshots.
     /// Files anywhere else, like the Desktop, stay where they are.
     func isInInbox(_ id: UUID) -> Bool {
@@ -266,7 +266,7 @@ final class Line: ObservableObject {
     }
 
     /// The oldest photo falling off a full line. Like the cross, a file from
-    /// Tendedero's folder goes to the Trash, or nothing would ever take it out
+    /// Clipstar's folder goes to the Trash, or nothing would ever take it out
     /// of that folder. If the Trash refuses it, it still leaves the line.
     /// After the dock gets fewer ports (a smaller screen, a bigger size),
     /// the oldest screenshots past it go the way of a full dock, and the
@@ -428,7 +428,7 @@ final class Line: ObservableObject {
     }
 }
 
-/// Copied text, kept as a text file in Hangar's folder.
+/// Copied text, kept as a text file in Clipstar's folder.
 func isText(_ url: URL) -> Bool {
     url.pathExtension.lowercased() == "txt"
 }

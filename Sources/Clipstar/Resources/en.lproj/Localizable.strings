@@ -3,8 +3,8 @@
    swift scripts/check-strings.swift to check. */
 
 /* AppDelegate */
-"Let Tendedero handle your screenshots?" = "Let Hangar handle your screenshots?";
-"Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Tendedero quits." = "Screenshots will launch into the dock the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Hangar quits.";
+"Let Clipstar handle your screenshots?" = "Let Clipstar handle your screenshots?";
+"Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Clipstar quits." = "Screenshots will launch into the dock the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Clipstar quits.";
 "Turn on" = "Turn on";
 "Not now" = "Not now";
 "Hide line" = "Close dock";
@@ -15,9 +15,9 @@
 "Open screenshots folder" = "Open screenshots folder";
 "Sounds" = "Sounds";
 "Open at login" = "Open at login";
-"Quit Tendedero" = "Quit Hangar";
+"Quit Clipstar" = "Quit Clipstar";
 "Could not change the login setting" = "Could not change the login setting";
-"Move Tendedero to the Applications folder and try again." = "Move Hangar to the Applications folder and try again.";
+"Move Clipstar to the Applications folder and try again." = "Move Clipstar to the Applications folder and try again.";
 "Also watch folders" = "Also watch folders";
 "Add Folder…" = "Add Folder…";
 "Stop Watching" = "Stop Watching";
@@ -45,7 +45,7 @@
 "Over full screen apps" = "Over full screen apps";
 "Hang copied images" = "Dock copied images";
 "Images you copy hang on the line too" = "Images you copy dock too";
-"Tendedero, hanging copied images" = "Hangar, docking copied images";
+"Clipstar, hanging copied images" = "Clipstar, docking copied images";
 "The line is empty" = "The dock is empty";
 "%d on the line" = "%d docked";
 

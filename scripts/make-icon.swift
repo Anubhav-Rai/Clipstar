@@ -1,4 +1,4 @@
-// Draws the Hangar app icon: a screenshot docked as a glowing hologram card,
+// Draws the Clipstar app icon: a screenshot docked as a glowing hologram card,
 // held by two clamps, inside the corner brackets of a HUD, with warp
 // streaks behind it, over deep space.
 // Usage: swift scripts/make-icon.swift out.png

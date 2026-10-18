@@ -1,11 +1,11 @@
 #!/bin/bash
-# Builds Hangar.app into ./build without needing Xcode.
+# Builds Clipstar.app into ./build without needing Xcode.
 # Usage: scripts/build-app.sh [debug|release]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="${1:-release}"
-APP="build/Hangar.app"
+APP="build/Clipstar.app"
 VERSION="0.1.0"
 
 # Builds one architecture and prints the binary's path.
@@ -21,7 +21,7 @@ build_arch() {
     export SDKROOT="$FALLBACK"
   fi
   if [ -n "${SDKROOT:-}" ]; then swift build -c "$CONFIG" --triple "$triple" >&2; fi
-  cp "$(swift build -c "$CONFIG" --triple "$triple" --show-bin-path)/Hangar" "$OUT/Hangar-$1"
+  cp "$(swift build -c "$CONFIG" --triple "$triple" --show-bin-path)/Clipstar" "$OUT/Clipstar-$1"
 }
 
 # A universal binary, so it runs on Apple silicon and on Intel Macs, from
@@ -29,29 +29,29 @@ build_arch() {
 OUT="$(mktemp -d)"
 build_arch arm64
 
-cp "$OUT/Hangar-arm64" "$OUT/Hangar"
-BIN="$OUT/Hangar"
+cp "$OUT/Clipstar-arm64" "$OUT/Clipstar"
+BIN="$OUT/Clipstar"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Hangar"
+cp "$BIN" "$APP/Contents/MacOS/Clipstar"
 
 # Icon
 WORK="$(mktemp -d)"
 swift scripts/make-icon.swift "$WORK/icon.png"
-ICONSET="$WORK/Hangar.iconset"
+ICONSET="$WORK/Clipstar.iconset"
 mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
   sips -z $s $s "$WORK/icon.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
   sips -z $((s*2)) $((s*2)) "$WORK/icon.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Hangar.icns"
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Clipstar.icns"
 rm -rf "$WORK"
 
 # Translations: one folder per language, listed in Info.plist so macOS knows
 # which languages the app speaks.
 LANGUAGES=""
-for dir in Sources/Hangar/Resources/*.lproj; do
+for dir in Sources/Clipstar/Resources/*.lproj; do
   cp -R "$dir" "$APP/Contents/Resources/"
   LANGUAGES="$LANGUAGES<string>$(basename "$dir" .lproj)</string>"
 done
@@ -61,11 +61,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Hangar</string>
-  <key>CFBundleDisplayName</key><string>Hangar</string>
-  <key>CFBundleIdentifier</key><string>com.anrai.Hangar</string>
-  <key>CFBundleExecutable</key><string>Hangar</string>
-  <key>CFBundleIconFile</key><string>Hangar</string>
+  <key>CFBundleName</key><string>Clipstar</string>
+  <key>CFBundleDisplayName</key><string>Clipstar</string>
+  <key>CFBundleIdentifier</key><string>com.anrai.Clipstar</string>
+  <key>CFBundleExecutable</key><string>Clipstar</string>
+  <key>CFBundleIconFile</key><string>Clipstar</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleVersion</key><string>7</string>
@@ -75,11 +75,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSDesktopFolderUsageDescription</key>
-  <string>Hangar watches the folder where macOS saves your screenshots so it can dock them.</string>
+  <string>Clipstar watches the folder where macOS saves your screenshots so it can dock them.</string>
   <key>NSDocumentsFolderUsageDescription</key>
-  <string>Hangar watches the folder you chose so it can dock new images.</string>
+  <string>Clipstar watches the folder you chose so it can dock new images.</string>
   <key>NSDownloadsFolderUsageDescription</key>
-  <string>Hangar watches the folder you chose so it can dock new images.</string>
+  <string>Clipstar watches the folder you chose so it can dock new images.</string>
 </dict>
 </plist>
 PLIST

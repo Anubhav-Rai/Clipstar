@@ -1,18 +1,33 @@
-# Hangar
+<p align="center"><img src="docs/icon.png" width="128" alt="Clipstar icon"></p>
 
-Your screenshots dock around the edges of the screen like ships in a hangar.
+# Clipstar
 
-- **Take a screenshot:** a laser scans what you captured, then it launches as a hologram card, banks toward a free port with an exhaust trail and docks with its clamps shut.
-- **Open the dock** (⌃⌥H, the menu bar, or rest the pointer in the menu bar): the HUD powers on and every screenshot warps in at once from all four edges. Close it and they warp away.
-- Click a card to copy it, drag it into any app or folder, double click to open, hold for Markup, right click for more.
+Your screenshots and copies, docked round the edge of your screen against the Milky Way.
 
-Ports fill round the sides in turn (top, right, bottom, left), from the middle outwards. Each screenshot keeps its port while it is docked.
+<p align="center"><img src="docs/clipstar.gif" width="720" alt="Clipstar: screenshots on a rail round the screen, numbered newest first, scrolling along it"></p>
+
+<sub>Mockup of the layout. Your own screenshots appear on the cards.</sub>
+
+## What it does
+
+- **Screenshots and copies dock quietly.** Take a screenshot, or copy an image, an image file in Finder or some text, and it joins the dock straight away. Nothing pops up.
+- **Open the dock** with ⌃⌥H, from the menu bar icon, or by resting the pointer next to the icon. The screen turns to space, with the newest card (**1**) at the middle of the top and older ones running left, down the side and along the bottom. The right side stays clear.
+- **Many more than fit:** the ones that don't fit wait in a tail of stardust in the bottom right corner, with a count.
+- **Slide** along the rail with a sideways two-finger swipe, or the mouse wheel.
+- **Zoom** a card up to 2× with an up and down swipe, a pinch, or ⌘ and the wheel. It grows only while you do it; the cards beside it move aside.
+- **Click** a card to copy it. It says Copied, and the dock gets out of the way, back to the app you were in, ready to paste. Drag a card into any app or folder, double click to open, hold for Markup, right click for more.
+- **Copied text stays private.** Text shows as asterisks. One **Show text** button asks for Touch ID or your password, and it locks again when the dock closes. Anything a password manager marks as private is never kept.
+- **Close** with a click on empty space, Escape or ⌃⌥H.
+
+From the menu: how solid the space background is, card size, which copies to keep, the shortcut, and **Handle screenshots**, which saves screenshots straight to Clipstar without the floating thumbnail (your own settings come back when it quits).
 
 ## Build
 
+Needs macOS 14 or later and Swift (the Command Line Tools are enough, no Xcode).
+
     scripts/build-app.sh
-    open build/Hangar.app
+    open build/Clipstar.app
 
 ## Credits
 
-Hangar is a fork of [Tendedero](https://github.com/alejandrobujan/tendedero) by Alejandro Buján, under the MIT License (see LICENSE). The watching, copying, dragging and editing all come from Tendedero; Hangar replaces the clothesline with the dock.
+Clipstar is a fork of [Tendedero](https://github.com/alejandrobujan/tendedero) by Alejandro Buján, under the MIT License (see [LICENSE](LICENSE)). Watching for screenshots, copying, dragging and editing all come from Tendedero; Clipstar replaces the clothesline with the space dock and adds the rail, zoom and private text.

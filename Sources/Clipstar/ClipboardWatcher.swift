@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 /// Hangs images copied to the clipboard, like a screenshot taken with Control
 /// held or an image copied in Preview. Each one is saved as a PNG in
-/// Tendedero's own folder, so on the line it behaves like any screenshot.
+/// Clipstar's own folder, so on the line it behaves like any screenshot.
 ///
 /// Off until the user turns it on. The pasteboard has no change notification,
 /// so its change count is checked twice a second; what was copied is only read
@@ -73,7 +73,7 @@ final class ClipboardWatcher {
         guard count != lastCount else { return }
         lastCount = count
         // Image files copied in Finder dock as they are, from where they
-        // live; nothing is copied into Hangar's folder. A file already docked,
+        // live; nothing is copied into Clipstar's folder. A file already docked,
         // like one copied from the dock itself, is not docked twice.
         if Self.isEnabled, let items = pb.pasteboardItems, !items.isEmpty,
            items.allSatisfy({ Self.privateTypes.isDisjoint(with: $0.types) }),
@@ -126,7 +126,7 @@ final class ClipboardWatcher {
 
     private var lastText: (text: String, url: URL)?
 
-    /// Kept as a text file only you can read, in Hangar's folder.
+    /// Kept as a text file only you can read, in Clipstar's folder.
     private func saveText(_ text: String) {
         if let lastText, lastText.text == text, FileManager.default.fileExists(atPath: lastText.url.path) { return }
         let fm = FileManager.default
