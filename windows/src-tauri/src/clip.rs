@@ -24,6 +24,9 @@ struct Handler {
     app: AppHandle,
     ctx: ClipboardContext,
     last_text: String,
+    /// The last image saved, to dock one copy once: Windows may announce
+    /// the same copy more than once.
+    last_image: u64,
 }
 
 impl ClipboardHandler for Handler {
@@ -47,7 +50,18 @@ impl ClipboardHandler for Handler {
             if let Ok(img) = self.ctx.get_image() {
                 let path = inbox.join(format!("Clipboard {stamp}.png"));
                 if img.save_to_path(&path.to_string_lossy()).is_ok() {
-                    dock(&self.app, path, "image");
+                    let hash = fs::read(&path).map(|b| {
+                        use std::hash::{Hash, Hasher};
+                        let mut h = std::collections::hash_map::DefaultHasher::new();
+                        b.hash(&mut h);
+                        h.finish()
+                    }).unwrap_or(0);
+                    if hash != 0 && hash == self.last_image {
+                        let _ = fs::remove_file(&path);
+                    } else {
+                        self.last_image = hash;
+                        dock(&self.app, path, "image");
+                    }
                 }
             }
             return;
@@ -71,7 +85,7 @@ pub fn watch(app: AppHandle) {
     std::thread::spawn(move || {
         let Ok(ctx) = ClipboardContext::new() else { return };
         let Ok(mut watcher) = ClipboardWatcherContext::new() else { return };
-        watcher.add_handler(Handler { app, ctx, last_text: String::new() });
+        watcher.add_handler(Handler { app, ctx, last_text: String::new(), last_image: 0 });
         watcher.start_watch();
     });
 }

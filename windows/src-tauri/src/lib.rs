@@ -71,15 +71,11 @@ fn now() -> u64 {
 
 impl Store {
     fn load(dir: PathBuf) -> Store {
-        let items: Vec<Item> = fs::read_to_string(dir.join("items.json"))
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        // Files saved by other tools may start with a byte order mark.
+        let read = |name: &str| fs::read_to_string(dir.join(name)).ok().map(|s| s.trim_start_matches('\u{feff}').to_string());
+        let items: Vec<Item> = read("items.json").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         let items = items.into_iter().filter(|i| Path::new(&i.path).exists()).collect();
-        let settings = fs::read_to_string(dir.join("settings.json"))
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let settings = read("settings.json").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         Store {
             items: Mutex::new(items),
             settings: Mutex::new(settings),
@@ -278,6 +274,15 @@ fn verify() -> bool {
     true
 }
 
+/// A line for display.log, from the page, for checking sizes.
+#[tauri::command]
+fn note(text: String, store: State<Store>) {
+    use std::io::Write;
+    if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(store.dir.join("display.log")) {
+        let _ = writeln!(f, "{text}");
+    }
+}
+
 /// The page has played the way out; the window goes.
 #[tauri::command]
 fn hide_dock(app: AppHandle) {
@@ -335,6 +340,12 @@ pub fn toggle(app: &AppHandle) {
         let area = m.work_area();
         let _ = w.set_position(PhysicalPosition::new(area.position.x, area.position.y));
         let _ = w.set_size(PhysicalSize::new(area.size.width, area.size.height));
+        let note = format!(
+            "monitor {:?} {:?} scale {} work {:?} {:?} -> window {:?} {:?} scale {:?}\n",
+            m.position(), m.size(), m.scale_factor(), area.position, area.size,
+            w.outer_position().ok(), w.inner_size().ok(), w.scale_factor().ok()
+        );
+        let _ = fs::write(app.state::<Store>().dir.join("display.log"), note);
     }
     let _ = w.show();
     let _ = w.set_focus();
@@ -511,7 +522,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             state, copy_item, remove_item, clear_all, open_item, reveal_item, read_text, text_shape,
-            unlock_text, lock_text, hide_dock, set_setting
+            unlock_text, lock_text, hide_dock, set_setting, note
         ])
         .run(tauri::generate_context!())
         .expect("Clipstar could not start");

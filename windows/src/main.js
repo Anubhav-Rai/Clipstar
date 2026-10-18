@@ -378,6 +378,7 @@ async function refresh() {
 
 listen('open', async () => {
   await refresh();
+  invoke('note', { text: `page ${innerWidth}x${innerHeight} dpr ${devicePixelRatio} screen ${screen.width}x${screen.height}` });
   scroll = scrollTarget = 0; zoom = { id: null, k: 1, at: 0 }; closing = null; copied = null;
   const t0 = performance.now() + 60, r = ring();
   flights.clear();
