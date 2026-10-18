@@ -1,26 +1,22 @@
 import SwiftUI
 
 enum Layout {
-    /// How big the docked screenshots are, from Size in the menu bar.
-    enum Size: String, CaseIterable {
-        case small, medium, large
+    /// How big the docked screenshots are, from Size in the menu bar, as a
+    /// percentage of the original card: 150% out of the box.
+    enum Size: Int, CaseIterable {
+        case p100 = 100, p125 = 125, p150 = 150, p175 = 175, p200 = 200
 
-        var scale: CGFloat {
-            switch self {
-            case .small: 0.8
-            case .medium: 1
-            case .large: 1.35
-            }
-        }
+        var scale: CGFloat { CGFloat(rawValue) / 100 }
+        var title: String { "\(rawValue)%" }
     }
 
     static var size: Size {
-        get { Size(rawValue: UserDefaults.standard.string(forKey: "lineSize") ?? "") ?? .medium }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "lineSize") }
+        get { Size(rawValue: UserDefaults.standard.integer(forKey: "cardSize")) ?? .p150 }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "cardSize") }
     }
 
-    static var photoMaxHeight: CGFloat { (116 * size.scale).rounded() }
-    static var cardWidth: CGFloat { (168 * size.scale).rounded() }
+    static var photoMaxHeight: CGFloat { (96 * size.scale).rounded() }
+    static var cardWidth: CGFloat { (140 * size.scale).rounded() }
 }
 
 /// The whole screen while the dock is open: the Milky Way behind, a trail

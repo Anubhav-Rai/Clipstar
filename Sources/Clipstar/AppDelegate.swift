@@ -988,8 +988,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let sizeItem = NSMenuItem(title: L("Size"), action: nil, keyEquivalent: "")
         let sizes = NSMenu()
-        for (size, title) in [(Layout.Size.small, L("Small")), (.medium, L("Medium")), (.large, L("Large"))] {
-            let item = ClosureMenuItem(title) { [weak self] in self?.setSize(size) }
+        for size in Layout.Size.allCases {
+            let item = ClosureMenuItem(size.title) { [weak self] in self?.setSize(size) }
             item.state = Layout.size == size ? .on : .off
             sizes.addItem(item)
         }
