@@ -19,8 +19,8 @@ enum Layout {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "lineSize") }
     }
 
-    static var photoMaxHeight: CGFloat { (96 * size.scale).rounded() }
-    static var cardWidth: CGFloat { (140 * size.scale).rounded() }
+    static var photoMaxHeight: CGFloat { (116 * size.scale).rounded() }
+    static var cardWidth: CGFloat { (168 * size.scale).rounded() }
 }
 
 /// The whole screen while the dock is open: the Milky Way behind, a trail
