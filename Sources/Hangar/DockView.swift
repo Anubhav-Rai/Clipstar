@@ -190,7 +190,7 @@ private struct SpaceBackground: View {
 
     // A peek just appears and goes; only opening on purpose eases in.
     private func show() {
-        if instant { set(0.95) } else { withAnimation(.easeOut(duration: 0.35)) { shown = 0.95 } }
+        if instant { set(0.8) } else { withAnimation(.easeOut(duration: 0.35)) { shown = 0.8 } }
     }
     private func hide() {
         if instant { set(0) } else { withAnimation(.easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
