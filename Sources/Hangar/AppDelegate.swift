@@ -873,6 +873,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         sizeItem.submenu = sizes
         menu.addItem(sizeItem)
 
+        let skyItem = NSMenuItem(title: L("Background"), action: nil, keyEquivalent: "")
+        let skies = NSMenu()
+        for (title, level) in [(L("Solid"), 0.95), (L("Dim"), 0.8), (L("Light"), 0.6), (L("Faint"), 0.4)] {
+            let item = ClosureMenuItem(title) { Dock.skyOpacity = level }
+            item.state = abs(Dock.skyOpacity - level) < 0.01 ? .on : .off
+            skies.addItem(item)
+        }
+        skyItem.submenu = skies
+        menu.addItem(skyItem)
+
         let shortcutItem = NSMenuItem(title: L("Shortcut"), action: nil, keyEquivalent: "")
         let shortcuts = NSMenu()
         let current = NSMenuItem(title: Shortcut.current?.display ?? L("None"), action: nil, keyEquivalent: "")

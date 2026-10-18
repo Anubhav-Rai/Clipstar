@@ -43,6 +43,12 @@ struct Slot: Equatable {
 enum Dock {
     static let rail: CGFloat = 12
     static let gap: CGFloat = 12
+    /// How solid the space behind the dock is, from Background in the menu.
+    static var skyOpacity: Double {
+        get { (UserDefaults.standard.object(forKey: "skyOpacity") as? Double) ?? 0.8 }
+        set { UserDefaults.standard.set(newValue, forKey: "skyOpacity") }
+    }
+
     /// The accent: starlight gold.
     static let cyan = Color(red: 1, green: 0.88, blue: 0.54)
     static let amber = Color(red: 1, green: 0.71, blue: 0.28)

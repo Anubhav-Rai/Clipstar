@@ -34,6 +34,11 @@
 "Small" = "Small";
 "Medium" = "Medium";
 "Large" = "Large";
+"Background" = "Background";
+"Solid" = "Solid";
+"Dim" = "Dim";
+"Light" = "Light";
+"Faint" = "Faint";
 "Bring the line down" = "Open the dock";
 "When the pointer rests in the menu bar" = "When the pointer rests in the menu bar";
 "When something new hangs" = "When something new docks";
