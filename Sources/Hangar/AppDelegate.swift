@@ -23,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotKey: HotKey?
     private var cancellables = Set<AnyCancellable>()
     private var mouseTimer: Timer?
+    /// When the ring last turned, so a swipe keeps the mouse to the end.
+    private var lastTurn = Date.distantPast
 
     /// Whether the panel is ordered in. It can be in and still tucked away
     /// above the top edge, like an auto-hiding Dock.
@@ -548,10 +550,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !GrabView.isDragging else { return }
         let local = panel.convertPoint(fromScreen: mouse)
         let flipped = CGPoint(x: local.x, y: panel.frame.height - local.y)
-        let overPhoto = line.hitRects.values.contains { $0.insetBy(dx: -4, dy: -4).contains(flipped) }
-        if panel.ignoresMouseEvents == overPhoto {
-            panel.ignoresMouseEvents = !overPhoto
+        var catches = line.hitRects.values.contains { $0.insetBy(dx: -4, dy: -4).contains(flipped) }
+        // With more than fit, the whole rail takes the mouse, gaps included,
+        // so a swipe anywhere along it turns the ring and never reaches the
+        // app underneath (Safari would take it for Back). A swipe in
+        // progress keeps it until a moment after the last scroll.
+        if !catches, line.liveCount > line.ports {
+            catches = Date().timeIntervalSince(lastTurn) < 0.6 || Self.onRail(flipped, in: panel.frame.size)
         }
+        if panel.ignoresMouseEvents == catches {
+            panel.ignoresMouseEvents = !catches
+        }
+    }
+
+    /// The bands the rail runs through: the top from the left edge to just
+    /// past the head, the left side, and the bottom up to and round the tail.
+    private static func onRail(_ p: CGPoint, in size: CGSize) -> Bool {
+        let top = CGRect(x: 0, y: 0, width: Dock.head(in: size).x + 50, height: Dock.topBand)
+        let left = CGRect(x: 0, y: 0, width: Dock.sideBand, height: size.height)
+        let bottom = CGRect(x: 0, y: size.height - Dock.topBand, width: size.width - 10, height: Dock.topBand)
+        return top.contains(p) || left.contains(p) || bottom.contains(p)
     }
 
     // MARK: Turning the ring
@@ -559,6 +577,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Two fingers turn the ring, either way they move; a mouse wheel turns
     /// it a port per notch. When the fingers lift, it settles into the ports.
     private func turnRing(_ event: NSEvent) {
+        lastTurn = Date()
         let delta = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
             ? event.scrollingDeltaX : event.scrollingDeltaY
         if event.hasPreciseScrollingDeltas {
