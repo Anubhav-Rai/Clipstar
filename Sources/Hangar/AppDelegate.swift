@@ -484,15 +484,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A click on empty space in the open dock closes it, and goes no
         // further. Clicks on a card are the card's.
         if let away = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
-            MainActor.assumeIsolated {
-                guard let self, self.isRevealed, event.window === self.panel else { return event }
-                let p = event.locationInWindow
+            let window = event.windowNumber, p = event.locationInWindow
+            let swallow = MainActor.assumeIsolated { () -> Bool in
+                guard let self, self.isRevealed, window == self.panel.windowNumber else { return false }
                 let flipped = CGPoint(x: p.x, y: self.panel.frame.height - p.y)
-                if self.line.hitRects.values.contains(where: { $0.insetBy(dx: -4, dy: -4).contains(flipped) }) { return event }
+                if self.line.hitRects.values.contains(where: { $0.insetBy(dx: -4, dy: -4).contains(flipped) }) { return false }
                 self.pinned = false
                 self.setRevealed(false)
-                return nil
+                return true
             }
+            return swallow ? nil : event
         }) {
             clickMonitors.append(away)
         }
