@@ -39,8 +39,8 @@ struct DockView: View {
             let older = max(0, live.count - ring.count - Int(line.scroll.rounded()))
             let newer = Int(line.scroll.rounded())
             ZStack(alignment: .topLeading) {
-                SpaceBackground(size: size, ring: ring, head: head, tail: tail, on: line.revealed)
-                Hyperspace(size: size, on: line.revealed)
+                SpaceBackground(size: size, ring: ring, head: head, tail: tail, on: line.revealed, instant: line.instant)
+                if !line.instant { Hyperspace(size: size, on: line.revealed) }
 
                 if !live.isEmpty {
                     Beacon(label: newer > 0 ? "+\(newer) newer" : nil, on: line.revealed)
@@ -67,7 +67,6 @@ struct DockView: View {
                     }
                 }
             }
-            .animation(.spring(response: 0.55, dampingFraction: 0.82), value: line.items.map(\.id))
             .animation(.easeInOut(duration: 0.3), value: line.items.isEmpty)
         }
         .onPreferenceChange(HitRectsKey.self) { rects in
@@ -156,6 +155,7 @@ private struct SpaceBackground: View {
     let head: CGPoint
     let tail: CGPoint
     let on: Bool
+    let instant: Bool
 
     @State private var shown: Double = 0
 
@@ -173,8 +173,8 @@ private struct SpaceBackground: View {
         .onChange(of: on) { _, now in now ? show() : hide() }
     }
 
-    private func show() { withAnimation(.easeOut(duration: 0.35)) { shown = 0.95 } }
-    private func hide() { withAnimation(.easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
+    private func show() { withAnimation(.easeOut(duration: instant ? 0.12 : 0.35)) { shown = 0.95 } }
+    private func hide() { withAnimation(instant ? .easeIn(duration: 0.15) : .easeIn(duration: 0.3).delay(0.35)) { shown = 0 } }
 }
 
 private struct Twinkle: View {

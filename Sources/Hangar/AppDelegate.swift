@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotKey: HotKey?
     private var cancellables = Set<AnyCancellable>()
     private var mouseTimer: Timer?
+    private var escapeKey: HotKey?
     /// When the ring last turned, so a swipe keeps the mouse to the end.
     private var lastTurn = Date.distantPast
 
@@ -273,6 +274,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateCapacity()
         wanted = true
         refresh()
+        // A peek appears at once; only opening on purpose warps the fleet in.
+        if !isRevealed { line.instant = true }
         if Self.peeksAtNew { reveal(peekFor: 3) }
     }
 
@@ -289,15 +292,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // was taken on. On a full line the oldest photo then falls in view as
         // the new one flies in.
         comeDown(on: screen)
-        guard let id = line.hang(url, flying: from != nil) else {
-            // Nothing hung after all, so an empty line goes away again.
+        // It shows up at once as the newest, with no flight.
+        if line.hang(url) == nil {
+            // Nothing hung after all, so an empty dock goes away again.
             itemsChanged()
-            return
-        }
-        guard let from else { return }
-        // Let the line come down and lay out before measuring the landing spot.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
-            self?.fly(id, from: from)
         }
     }
 
@@ -388,6 +386,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard on != isRevealed else { return }
         isRevealed = on
         line.revealed = on
+        // Escape closes the dock while it is open, and only then.
+        escapeKey = on ? HotKey(Shortcut(keyCode: kVK_Escape, modifiers: [], key: "")) { [weak self] in
+            self?.setRevealed(false)
+        } : nil
         // Tucked away, the line leaves no window behind: an invisible strip
         // over the top of the screen would still sit above other apps for
         // anything that checks what is on top, like screen automation.
@@ -423,6 +425,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             keepOpen = true
             wanted = true
             openedOnPurpose = true
+            line.instant = false
             panel.placeOnScreen()
             updateCapacity()
             refresh()
@@ -476,6 +479,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: handler) {
             clickMonitors.append(global)
         }
+        // A click that goes past the dock to whatever is underneath, on empty
+        // space, closes it.
+        if let away = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isRevealed else { return }
+                self.pinned = false
+                self.setRevealed(false)
+            }
+        }) {
+            clickMonitors.append(away)
+        }
         if let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { e in handler(e); return e }) {
             clickMonitors.append(local)
         }
@@ -527,11 +541,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let middle = NSRect(x: panel.frame.minX + inner.minX, y: panel.frame.maxY - inner.maxY,
                             width: inner.width, height: inner.height)
         let inside = NSMouseInRect(mouse, zone, false) && !NSMouseInRect(mouse, middle, false)
-        if inside && pinned { pinned = false }
+        // Moving onto a card during a peek keeps the dock open, as if it had
+        // been opened on purpose.
+        if !pinned, line.hitRects.values.contains(where: {
+            $0.contains(CGPoint(x: mouse.x - panel.frame.minX, y: panel.frame.maxY - mouse.y))
+        }) {
+            pinned = true
+        }
 
         let busy = pinned || GrabView.isDragging || GrabView.isShowingMenu
             || line.pressedID != nil || now < peekUntil
-        if inside || busy {
+        // A peek from a new screenshot goes when its moment is up, wherever
+        // the pointer is, unless you moved onto a card and so kept it.
+        let peeking = peekUntil != .distantPast
+        if inside && !(peeking && !busy) || busy {
             awaySince = nil
         } else {
             let since = awaySince ?? now

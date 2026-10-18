@@ -47,7 +47,18 @@ struct DockedView: View {
         .opacity(item.falling || item.flying ? 0 : 1)
         .transaction { t in if item.falling { t.animation = nil } }
         .onAppear(perform: appear)
-        .onChange(of: line.revealed) { _, on in on ? warpIn() : warpOut() }
+        .onChange(of: line.revealed) { _, on in
+            if line.instant {
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    warp = on ? 0 : 1
+                    locked = on
+                }
+            } else {
+                on ? warpIn() : warpOut()
+            }
+        }
         .onChange(of: item.flying) { was, now in if was && !now { dock() } }
         .onChange(of: copied) { _, isCopied in if isCopied { flash() } }
     }
@@ -59,13 +70,9 @@ struct DockedView: View {
             // The launch flies it here; it shows itself once it lands.
             warp = 0
         } else if line.revealed {
-            if Date().timeIntervalSince(item.born) < 1 {
-                warpIn(after: 0)
-            } else {
-                // Brought round by the ring: already docked.
-                warp = 0
-                locked = true
-            }
+            // New, or brought round by the ring: already docked.
+            warp = 0
+            locked = true
         }
     }
 

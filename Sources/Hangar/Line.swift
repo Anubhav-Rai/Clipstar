@@ -35,8 +35,11 @@ final class Line: ObservableObject {
     @Published var copiedID: UUID?
     @Published var draggingID: UUID?
     @Published var pressedID: UUID?
-    /// Whether the line has slid down into view.
+    /// Whether the dock is open.
     @Published var revealed = false
+    /// Opened for a moment by a new screenshot: everything appears at once,
+    /// with no warp.
+    @Published var instant = false
 
     /// Card frames in window coordinates, reported by the views. The panel
     /// uses them to only catch clicks over photos and let the rest through.
