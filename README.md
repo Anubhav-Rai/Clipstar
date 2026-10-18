@@ -28,6 +28,12 @@ Needs macOS 14 or later and Swift (the Command Line Tools are enough, no Xcode).
     scripts/build-app.sh
     open build/Clipstar.app
 
-## Credits
+## Credits and thanks
 
-Clipstar is a fork of [Tendedero](https://github.com/alejandrobujan/tendedero) by Alejandro Buján, under the MIT License (see [LICENSE](LICENSE)). Watching for screenshots, copying, dragging and editing all come from Tendedero; Clipstar replaces the clothesline with the space dock and adds the rail, zoom and private text.
+Clipstar exists because of **[Tendedero](https://github.com/alejandrobujan/tendedero)** by **[Alejandro Buján](https://github.com/alejandrobujan)**, and all the credit for its foundations goes to him.
+
+Tendedero's idea of hanging your screenshots on a little clothesline at the top of the screen is what got me started. Almost everything that makes Clipstar work comes from his code: watching for new screenshots, handling where macOS saves them, picking up copied images, copy and drag and drop, Markup, Quick Look, the menu bar and the shortcut. Clipstar is his app wearing a space suit. I swapped the clothesline for a dock round the edge of the screen and added a few things on top.
+
+Thank you, Alejandro, for building Tendedero, for sharing it openly, and for the motivation to make something of my own with it. If you like the idea of Clipstar, please go and try the original at [tendedero.app](https://tendedero.app) and give [the Tendedero repository](https://github.com/alejandrobujan/tendedero) a star.
+
+Clipstar is released under the same MIT License as Tendedero, with Alejandro Buján's original copyright notice kept in [LICENSE](LICENSE).
