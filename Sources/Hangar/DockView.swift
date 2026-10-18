@@ -55,8 +55,9 @@ struct DockView: View {
                         .transition(.opacity)
                 }
 
+                let zoomedAt = line.zoomID.flatMap { line.ringPosition(of: $0) }
                 ForEach(line.items) { item in
-                    if let p = line.ringPosition(of: item.id), let number = line.number(of: item.id),
+                    if let p = ringPosition(item.id, zoomedAt: zoomedAt), let number = line.number(of: item.id),
                        let place = Dock.place(at: p, ring: ring, head: head, tail: tail) {
                         let zoomed = line.zoomID == item.id
                         DockedView(item: item, line: line, slot: place.slot, number: number,
@@ -78,6 +79,16 @@ struct DockView: View {
         .onPreferenceChange(HitRectsKey.self) { rects in
             line.hitRects = rects
         }
+    }
+
+    /// Where a card rides, with room made round a zoomed one: its neighbours
+    /// slide along the rail away from it, half a card further for each
+    /// time it doubles.
+    private func ringPosition(_ id: UUID, zoomedAt: CGFloat?) -> CGFloat? {
+        guard let p = line.ringPosition(of: id) else { return nil }
+        guard let z = zoomedAt, id != line.zoomID else { return p }
+        let push = (line.zoom - 1) * 0.6
+        return p < z ? p - push : p + push
     }
 }
 

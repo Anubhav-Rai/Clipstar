@@ -638,14 +638,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         if zooming {
+            // Only while the fingers are down: lifting them puts it back, and
+            // the coasting that follows does nothing.
+            guard event.momentumPhase.isEmpty else { return }
+            if event.phase == .ended || event.phase == .cancelled {
+                unzoom()
+                return
+            }
             guard line.zoomID != nil else { return }
             // With natural scrolling the deltas follow the content, the
             // other way from the fingers.
             let up = event.isDirectionInvertedFromDevice ? -dy : dy
             zoom(by: up / 120)
-            if event.phase == .ended || event.phase == .cancelled || event.momentumPhase == .ended {
-                if line.zoom < 1.15 { unzoom() }
-            }
         } else {
             unzoom()
             line.scroll(by: (abs(dx) >= abs(dy) ? dx : dy) / 60)
@@ -667,7 +671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func zoom(by amount: CGFloat) {
         let size = panel.frame.size, box = Dock.box
-        let most = max(1, min(size.width * 0.85 / box.width, size.height * 0.85 / box.height))
+        let most = max(1, min(2, size.width * 0.85 / box.width, size.height * 0.85 / box.height))
         line.zoom = min(most, max(1, line.zoom + amount))
     }
 
